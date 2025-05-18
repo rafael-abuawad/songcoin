@@ -1,0 +1,12 @@
+[project]
+name = "songcoin"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "eth-ape>=0.8.33",
+    "ruff>=0.11.9",
+    "snekmate>=0.1.1",
+    "vyper==0.4.1",
+]
