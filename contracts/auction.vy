@@ -34,7 +34,7 @@ rounds: public(HashMap[uint256, Round])
 current_round: public(uint256)
 
 # Token
-SONGCOIN: immutable(IERC20)
+songcoin: public(immutable(IERC20))
 
 # Auction params
 ROUND_DURATION: constant(uint256) = 60 * 60 * 24 # 1 day
@@ -53,7 +53,7 @@ exports: ow.__interface__
 @deploy
 def __init__(_songcoin: address):
     self.current_round = 1
-    SONGCOIN = IERC20(_songcoin)
+    songcoin = IERC20(_songcoin)
     # Initialize first round
     auction_start: uint256 = block.timestamp
     self.rounds[1] = Round(
@@ -76,16 +76,16 @@ def bid(_amount: uint256, _song: Song):
     r: Round = self.rounds[current_round]
 
     # Check if round has started
-    assert block.timestamp >= r.start_time # Round hasn't started
+    assert block.timestamp >= r.start_time # auction::round_has_not_started
 
     # Check if round is not over
-    assert block.timestamp < r.end_time # Round is over
+    assert block.timestamp < r.end_time # auction::round_is_over
 
     # Check if bid is high enough
-    assert _amount > r.highest_bid # Bid is too low
+    assert _amount > r.highest_bid # auction::bid_is_too_low
 
     # Transfer SONGCOIN from sender to contract
-    assert extcall SONGCOIN.transferFrom(msg.sender, self, _amount) # Transfer failed
+    assert extcall songcoin.transferFrom(msg.sender, self, _amount) # auction::transfer_failed
 
     # Track refund for previous high bidder in this round
     self.pending_returns[r.highest_bidder][current_round] += r.highest_bid
@@ -104,23 +104,22 @@ def withdraw(_round: uint256):
     active_round: Round = self.rounds[self.current_round]
     pending_amount: uint256 = self.pending_returns[msg.sender][_round]
 
-    assert _round < self.current_round # Can't withdraw from a round that doesn't exist
-    assert _round != self.current_round # Can't withdraw from the current round
-    assert pending_amount > 0 # No refunds if no bid
-    assert active_round.highest_bidder != msg.sender # Can't withdraw active bid
+    assert _round < self.current_round # auction::round_does_not_exist
+    assert _round != self.current_round # auction::round_is_current
+    assert pending_amount > 0 # auction::no_refunds
+    assert active_round.highest_bidder != msg.sender # auction::active_bid
 
     self.pending_returns[msg.sender][_round] = 0
-    extcall SONGCOIN.transfer(msg.sender, pending_amount)
+    extcall songcoin.transfer(msg.sender, pending_amount)
 
 
-# End the current round and send the highest bid to the beneficiary
 @external
 def end_round():
     active_round: Round = self.rounds[self.current_round]
     # Check if round end time has been reached
-    assert block.timestamp >= active_round.end_time
+    assert block.timestamp >= active_round.end_time # auction::round_has_not_ended
     # Check if round has not already ended
-    assert not active_round.ended
+    assert not active_round.ended # auction::round_has_ended
     # Mark round as ended
     self.rounds[self.current_round].ended = True
 
@@ -129,11 +128,11 @@ def end_round():
 @external
 def start_new_round():
     # Ensure current round has ended
-    assert self.rounds[self.current_round].ended
+    assert self.rounds[self.current_round].ended # auction::round_has_not_ended
     # Increment round counter
     self.current_round += 1
     # Initialize new round
-    new_start: uint256 = self.rounds[self.current_round - 1].end_time
+    new_start: uint256 = block.timestamp
     self.rounds[self.current_round] = Round(
         highest_bidder=empty(address),
         highest_bid=0,
@@ -142,4 +141,10 @@ def start_new_round():
         start_time=new_start,
         end_time=new_start + ROUND_DURATION
     )
-    assert block.timestamp < self.rounds[self.current_round].end_time
+    assert block.timestamp < self.rounds[self.current_round].end_time # auction::round_end_time_in_future
+
+
+@external
+@view
+def get_active_round() -> Round:
+    return self.rounds[self.current_round]
