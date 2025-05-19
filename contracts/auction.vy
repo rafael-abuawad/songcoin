@@ -54,6 +54,7 @@ genesis_round_called: public(bool)
 
 
 # @dev We define the `ROUND_DURATION` constant.
+# It is the duration of a round in seconds.
 ROUND_DURATION: constant(uint256) = 60 * 60 * 24 # 1 day
 
 
@@ -65,7 +66,7 @@ pending_returns: public(HashMap[address, HashMap[uint256, uint256]])
 
 
 # @dev We define the `_id` private variable.
-# It is the current round.
+# It is the current round id.
 _id: uint256
 
 
@@ -89,12 +90,16 @@ def _genesis_round():
     """
     assert not self.genesis_round_called, "auction: genesis round already called"
     self.genesis_round_called = True
-    self._id = 0
 
+    # Current round id to 0
+    id: uint256 = 0
+    self._id = id
+
+    # Set start and end times for genesis round
     start_time: uint256 = block.timestamp
     end_time: uint256 = start_time + ROUND_DURATION
-    self.rounds[0] = Round(
-        id=0,
+    self.rounds[id] = Round(
+        id=id,
         highest_bidder=empty(address),
         highest_bid=0,
         ended=False,
