@@ -1,26 +1,26 @@
 import pytest
 import ape
+
 from eth_pydantic_types import HexBytes
-import time
 
 
 def test_initialization(auction, mock_erc20):
     """Test contract initialization"""
-    assert auction.current_round() == 1
+    assert auction.get_current_round_id() == 0
+    assert auction.genesis_round_called() == True
     assert auction.songcoin() == mock_erc20.address
 
     # Check first round initialization
-    round_data = auction.rounds(1)
-    assert (
-        round_data[0] == "0x0000000000000000000000000000000000000000"
-    )  # empty address
-    assert round_data[1] == 0  # highest_bid
-    assert round_data[2].name == ""
-    assert round_data[2].artist == ""
-    assert round_data[3] == False  # ended
-    assert round_data[4] > 0  # start_time
-    assert round_data[5] > round_data[4]  # end_time > start_time
-
+    current_round = auction.get_current_round()
+    assert current_round.id == 0
+    assert current_round.start_time > 0
+    assert current_round.end_time > current_round.start_time
+    assert current_round.highest_bidder == "0x0000000000000000000000000000000000000000"
+    assert current_round.highest_bid == 0
+    assert current_round.ended == False
+    assert current_round.song.title == ""
+    assert current_round.song.artist == ""
+    assert current_round.song.iframe_hash == HexBytes("0x0000000000000000000000000000000000000000000000000000000000000000")
 
 def test_bid(auction, mock_erc20, bidder1, bidder2, song, deployer):
     """Test bidding functionality"""
