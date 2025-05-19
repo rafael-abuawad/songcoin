@@ -316,13 +316,16 @@ def test_withdraw_multiple_rounds(
 
     # Withdraw from both rounds
     initial_balance = mock_erc20.balanceOf(bidder1)
+
     auction.withdraw(1, sender=bidder1)
-    auction.withdraw(2, sender=bidder2)
+    with ape.reverts():
+        auction.withdraw(1, sender=bidder2)
+
     final_balance = mock_erc20.balanceOf(bidder1)
 
     assert final_balance - initial_balance == 100
     assert auction.pending_returns(bidder1, 1) == 0
-    assert auction.pending_returns(bidder2, 2) == 300
+    assert auction.pending_returns(bidder2, 1) == 0
 
 
 def test_round_duration(auction):
