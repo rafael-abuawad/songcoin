@@ -2,8 +2,11 @@ import pytest
 
 # Test data
 SONG_NAME = "Test Song"
+SONG_NAME2 = "Test Song 2"
 ARTIST_NAME = "Test Artist"
+ARTIST_NAME2 = "Test Artist 2"
 IFRAME_HASH = "0x1234567890123456789012345678901234567890123456789012345678901234"
+IFRAME_HASH2 = "0x1234567890123456789012345678901234567890123456789012345678901235"
 
 
 @pytest.fixture(scope="module")
@@ -23,7 +26,12 @@ def bidder3(accounts):
 
 @pytest.fixture(scope="module")
 def song():
-    return {"name": SONG_NAME, "artist": ARTIST_NAME, "iframe_hash": IFRAME_HASH}
+    return {"title": SONG_NAME, "artist": ARTIST_NAME, "iframe_hash": IFRAME_HASH}
+
+
+@pytest.fixture(scope="module")
+def song2():
+    return {"title": SONG_NAME2, "artist": ARTIST_NAME2, "iframe_hash": IFRAME_HASH2}
 
 
 @pytest.fixture(scope="module")

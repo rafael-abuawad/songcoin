@@ -109,14 +109,6 @@ def _genesis_round():
     )
 
 
-@internal
-def _set_highest_bidder_pending_rewards_to_zero(_highest_bidder: address, _round: uint256):
-    """
-    This function is used to set the highest bidder's pending rewards to zero.
-    """
-    self.pending_returns[_highest_bidder][_round] = 0
-
-
 # @dev We define the `bid` external function.
 # It is used to bid on the current round with the value sent.
 @external
@@ -150,14 +142,17 @@ def bid(_amount: uint256, _song: Song):
 # It is used to withdraw a previously refunded bid for a specific round.
 @external
 def withdraw(_round: uint256):
+    # Check if round exists and is not the current round
     id: uint256 = self._id
+    assert _round != id, "auction: round cannot be current"
+    assert _round < id, "auction: round does not exist"
+
     r: Round = self.rounds[_round]
     pending_amount: uint256 = self.pending_returns[msg.sender][_round]
 
-    # Check if round exists, is not current, and has pending returns
-    assert _round < id, "auction: round does not exist"
-    assert _round != id, "auction: round is current"
+    # Check if round has pending returns and is not the current round
     assert pending_amount > 0, "auction: no refunds"
+    assert r.highest_bidder != msg.sender, "auction: highest bidder cannot withdraw"
 
     # Transfer Songcoin from contract to sender
     self.pending_returns[msg.sender][_round] = 0
@@ -173,7 +168,6 @@ def end_round():
 
     id: uint256 = self._id
     active_round: Round = self.rounds[id]
-    highest_bidder: address = active_round.highest_bidder
 
     # Check if round end time has been reached
     assert block.timestamp >= active_round.end_time, "auction: round has not ended"
@@ -183,18 +177,18 @@ def end_round():
 
     # Mark round as ended
     self.rounds[id].ended = True
-    self._set_highest_bidder_pending_rewards_to_zero(highest_bidder, id)
+    self.pending_returns[active_round.highest_bidder][id] = 0
 
 
 # Start a new round
 @external
 def start_new_round():
-    id: uint256 = self._id
     # Ensure current round has ended
-    assert self.rounds[id].ended, "auction: round has not ended"
+    assert self.rounds[self._id].ended, "auction: round has not ended"
 
     # Increment round counter
-    id += 1
+    self._id += 1
+    id: uint256 = self._id
 
     # Initialize new round
     start_time: uint256 = block.timestamp
@@ -208,9 +202,6 @@ def start_new_round():
         end_time=end_time,
         song=Song(title="", artist="", iframe_hash=empty(bytes32))
     )
-
-    # Update current round id
-    self._id = id
 
 
 @external
@@ -234,6 +225,13 @@ def get_round_duration() -> uint256:
 @external
 @view
 def get_pending_returns(_user: address, _id: uint256) -> uint256:
+    if _id == self._id:
+        return 0
+
+    selected_round: Round = self.rounds[_id]
+    if selected_round.highest_bidder == _user:
+        return 0
+    
     return self.pending_returns[_user][_id]
 
 
