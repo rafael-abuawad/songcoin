@@ -25,7 +25,7 @@ def test_initialization(auction, mock_erc20):
     )
 
 
-def test_bid_simple(auction, mock_erc20, bidder1, bidder2, song, song2, deployer):
+def test_bid_simple(auction, mock_erc20, bidder1, bidder2, song, deployer):
     """Test bidding functionality"""
     # Mint tokens to bidders
     mock_erc20.mint(bidder1, 100_0000, sender=deployer)
@@ -66,7 +66,7 @@ def test_bid_simple(auction, mock_erc20, bidder1, bidder2, song, song2, deployer
     assert round_data.song.title == song["title"]
 
     # Check pending returns for outbid bidder
-    assert auction.get_pending_returns(bidder1, id) == 0
+    assert auction.get_pending_returns(bidder1, id) == 100
     assert auction.get_pending_returns(bidder2, id) == 0
 
 
@@ -101,7 +101,7 @@ def test_withdraw_simple(chain, auction, mock_erc20, deployer, bidder1, bidder2,
     auction.bid(200, song, sender=bidder2)
 
     # Test pending returns
-    assert auction.get_pending_returns(bidder1, id) == 0
+    assert auction.get_pending_returns(bidder1, id) == 100
     assert auction.get_pending_returns(bidder2, id) == 0
 
     current_round = auction.get_current_round()
@@ -278,35 +278,56 @@ def test_song_bid_event(auction, mock_erc20, bidder1, song, deployer):
     """Test SongBid event emission"""
     # Mint tokens to bidder
     mock_erc20.mint(bidder1, 100_0000, sender=deployer)
-    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    approve_amount = 1000
+    mock_erc20.approve(auction.address, approve_amount, sender=bidder1)
 
     # Make a bid and check event
+    amount = 100
     tx = auction.bid(100, song, sender=bidder1)
 
     # Get the event
-    event = tx.events[2]
-    assert event.sender == bidder1.address
-    assert event.r == 1  # First round
-    assert event.amount == 100
-    assert event.song[0] == song["name"]
-    assert event.song[1] == song["artist"]
-    assert event.song[2] == HexBytes(song["iframe_hash"])
+    approval_event = tx.events[0]
+    assert approval_event.owner == bidder1
+    assert approval_event.spender == auction.address
+    assert (
+        approval_event.value == approve_amount - amount
+    )  # amount of tokens approved for auction
+
+    transfer_event = tx.events[1]
+    assert transfer_event.sender == bidder1
+    assert transfer_event.receiver == auction.address
+    assert transfer_event.value == amount
+
+    song_bid_event = tx.events[2]
+    assert song_bid_event.sender == bidder1
+    assert song_bid_event.round_id == auction.get_current_round_id()
+    assert song_bid_event.amount == amount
+    assert song_bid_event.song[0] == song["title"]  # title
+    assert song_bid_event.song[1] == song["artist"]  # artist
+    assert song_bid_event.song[2] == HexBytes(song["iframe_hash"])  # iframe_hash
 
 
 def test_multiple_rounds(chain, auction, mock_erc20, deployer, bidder1, bidder2, song):
     """Test multiple rounds of bidding"""
     # Mint tokens to bidders
-    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
-    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
-    mock_erc20.approve(auction.address, 1000, sender=bidder1)
-    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+    mint_amount = 100_0000
+    mock_erc20.mint(bidder1, mint_amount, sender=deployer)
+    mock_erc20.mint(bidder2, mint_amount, sender=deployer)
+
+    approve_amount = 1000
+    mock_erc20.approve(auction.address, approve_amount, sender=bidder1)
+    mock_erc20.approve(auction.address, approve_amount, sender=bidder2)
 
     # Round 1
-    auction.bid(100, song, sender=bidder1)
-    auction.bid(200, song, sender=bidder2)
+    bidder1_bid1 = 100
+    bidder2_bid1 = 200
+    auction.bid(bidder1_bid1, song, sender=bidder1)
+    auction.bid(bidder2_bid1, song, sender=bidder2)
+
+    id = auction.get_current_round_id()
 
     # End round 1
-    current_round = auction.get_active_round()
+    current_round = auction.get_current_round()
     chain.pending_timestamp += current_round.end_time
     chain.mine()
     auction.end_round(sender=deployer)
@@ -315,37 +336,41 @@ def test_multiple_rounds(chain, auction, mock_erc20, deployer, bidder1, bidder2,
     auction.start_new_round(sender=deployer)
 
     # Round 2
-    auction.bid(300, song, sender=bidder1)
-    auction.bid(400, song, sender=bidder2)
+    bidder1_bid2 = 300
+    bidder2_bid2 = 400
+    auction.bid(bidder1_bid2, song, sender=bidder1)
+    auction.bid(bidder2_bid2, song, sender=bidder2)
 
     # Verify round 1 data
-    round1 = auction.rounds(1)
-    assert round1[0] == bidder2.address
-    assert round1[1] == 200
-    assert round1[3] == True  # ended
+    round1 = auction.rounds(id)
+    assert round1.highest_bidder == bidder2.address
+    assert round1.highest_bid == bidder2_bid1
+    assert round1.ended  # ended
 
     # Verify round 2 data
-    round2 = auction.rounds(2)
-    assert round2[0] == bidder2.address
-    assert round2[1] == 400
-    assert round2[3] == False  # not ended
+    round2 = auction.rounds(id + 1)
+    assert round2.highest_bidder == bidder2.address
+    assert round2.highest_bid == bidder2_bid2
+    assert not round2.ended  # not ended
 
 
 def test_bid_after_round_end(chain, auction, mock_erc20, deployer, bidder1, song):
     """Test bidding after round end time"""
     # Mint tokens to bidder
-    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
-    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    mint_amount = 100_0000
+    mock_erc20.mint(bidder1, mint_amount, sender=deployer)
+    approve_amount = 1000
+    mock_erc20.approve(auction.address, approve_amount, sender=bidder1)
 
     # Set timestamp to after round end
-    current_round = auction.get_active_round()
+    current_round = auction.get_current_round()
     chain.pending_timestamp += current_round.end_time + 1
     chain.mine()
 
     auction.end_round(sender=deployer)
 
     # Try to bid after round end
-    with ape.reverts():
+    with ape.reverts("auction: round is over"):
         auction.bid(100, song, sender=bidder1)
 
 
@@ -356,53 +381,73 @@ def test_withdraw_multiple_rounds(
     # Mint tokens to bidders
     mock_erc20.mint(bidder1, 100_0000, sender=deployer)
     mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+
     mock_erc20.approve(auction.address, 1000, sender=bidder1)
     mock_erc20.approve(auction.address, 1000, sender=bidder2)
 
     # Round 1: bidder1 gets outbid
-    auction.bid(100, song, sender=bidder1)
-    auction.bid(200, song, sender=bidder2)
+    bidder1_bid1 = 100
+    auction.bid(bidder1_bid1, song, sender=bidder1)
+    bidder2_bid1 = 200
+    auction.bid(bidder2_bid1, song, sender=bidder2)
+
+    # Set round ID
+    round1_id = auction.get_current_round_id()
 
     # End round 1
-    current_round = auction.get_active_round()
+    current_round = auction.get_current_round()
     chain.pending_timestamp += current_round.end_time
     chain.mine()
     auction.end_round(sender=deployer)
+
+    round1 = auction.rounds(round1_id)
+    assert round1.highest_bidder == bidder2.address
+    assert round1.highest_bid == bidder2_bid1
+    assert round1.ended
 
     # Start round 2
     auction.start_new_round(sender=deployer)
 
-    # Round 2: bidder2 gets outbid
-    auction.bid(300, song, sender=bidder1)
-    auction.bid(400, song, sender=bidder2)
+    # Cehck round 1 pending returns
+    assert auction.get_pending_returns(bidder1, round1_id) == bidder1_bid1
+    assert auction.get_pending_returns(bidder2, round1_id) == 0
+
+    # Round 2: bidder1 gets outbid
+    bidder1_bid2 = 300
+    auction.bid(bidder1_bid2, song, sender=bidder1)
+    bidder2_bid2 = 400
+    auction.bid(bidder2_bid2, song, sender=bidder2)
 
     # End round 2
-    current_round = auction.get_active_round()
+    current_round = auction.get_current_round()
     chain.pending_timestamp += current_round.end_time
     chain.mine()
     auction.end_round(sender=deployer)
 
+    # Set round ID
+    round2_id = auction.get_current_round_id()
+
+    round2 = auction.rounds(round2_id)
+    assert round2.highest_bidder == bidder2.address
+    assert round2.highest_bid == bidder2_bid2
+    assert round2.ended
+
     # Start round 3
     auction.start_new_round(sender=deployer)
 
-    # Withdraw from both rounds
-    initial_balance = mock_erc20.balanceOf(bidder1)
-
-    auction.withdraw(1, sender=bidder1)
-    with ape.reverts():
-        auction.withdraw(1, sender=bidder2)
-
-    final_balance = mock_erc20.balanceOf(bidder1)
-
-    assert final_balance - initial_balance == 100
-    assert auction.pending_returns(bidder1, 1) == 0
-    assert auction.pending_returns(bidder2, 1) == 0
+    # Cehck pending returns
+    assert auction.get_pending_returns(bidder1, round1_id) == bidder1_bid1
+    assert auction.get_pending_returns(bidder1, round2_id) == bidder1_bid2
+    assert auction.get_pending_returns(bidder2, round1_id) == 0
+    assert auction.get_pending_returns(bidder2, round2_id) == 0
 
 
 def test_round_duration(auction):
     """Test round duration is correct"""
-    round1 = auction.rounds(1)
-    assert round1[5] - round1[4] == 60 * 60 * 24  # 1 day in seconds
+    current_round = auction.get_current_round()
+    assert (
+        current_round.end_time - current_round.start_time == 60 * 60 * 24
+    )  # 1 day in seconds
 
 
 def test_bid_with_insufficient_balance(auction, mock_erc20, bidder1, song, deployer):
@@ -411,7 +456,7 @@ def test_bid_with_insufficient_balance(auction, mock_erc20, bidder1, song, deplo
     mock_erc20.approve(auction.address, 1000, sender=bidder1)
 
     # Try to bid without tokens
-    with ape.reverts():
+    with ape.reverts("erc20: transfer amount exceeds balance"):
         auction.bid(100, song, sender=bidder1)
 
 
@@ -421,5 +466,5 @@ def test_bid_without_approval(auction, mock_erc20, bidder1, song, deployer):
     mock_erc20.mint(bidder1, 100_0000, sender=deployer)
 
     # Try to bid without approval
-    with ape.reverts():
+    with ape.reverts("erc20: insufficient allowance"):
         auction.bid(100, song, sender=bidder1)

@@ -127,7 +127,8 @@ def bid(_amount: uint256, _song: Song):
     assert extcall songcoin.transferFrom(msg.sender, self, _amount, default_return_value=False), "auction: transfer failed"
 
     # Track refund for previous high bidder in this round
-    self.pending_returns[r.highest_bidder][id] += r.highest_bid
+    if r.highest_bidder != empty(address):
+        self.pending_returns[r.highest_bidder][id] += r.highest_bid
 
     # Update round with new high bid
     self.rounds[id].highest_bidder = msg.sender
@@ -225,13 +226,8 @@ def get_round_duration() -> uint256:
 @external
 @view
 def get_pending_returns(_user: address, _id: uint256) -> uint256:
-    if _id == self._id:
+    if self.rounds[_id].highest_bidder == _user:
         return 0
-
-    selected_round: Round = self.rounds[_id]
-    if selected_round.highest_bidder == _user:
-        return 0
-    
     return self.pending_returns[_user][_id]
 
 
