@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Music } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Music } from "lucide-react";
 
 export function CurrentBids() {
   // Mock data - in a real app, this would come from the blockchain
@@ -25,7 +25,7 @@ export function CurrentBids() {
       bidAmount: 0.01,
       bidder: "0x9i0j...1k2l",
     },
-  ]
+  ];
 
   return (
     <Card>
@@ -35,7 +35,9 @@ export function CurrentBids() {
       <CardContent>
         <div className="space-y-3">
           {upcomingBids.length === 0 ? (
-            <p className="text-center text-slate-400">No upcoming bids yet. Be the first!</p>
+            <p className="text-center text-slate-400">
+              No upcoming bids yet. Be the first!
+            </p>
           ) : (
             upcomingBids.map((bid) => (
               <div
@@ -48,12 +50,18 @@ export function CurrentBids() {
                   </div>
                   <div>
                     <p className="text-sm font-medium">{bid.title}</p>
-                    <p className="text-xs text-muted-foreground">{bid.artist}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {bid.artist}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-primary">Ξ {bid.bidAmount.toFixed(3)}</p>
-                  <p className="font-mono text-xs text-muted-foreground">{bid.bidder}</p>
+                  <p className="font-bold text-primary">
+                    Ξ {bid.bidAmount.toFixed(3)}
+                  </p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {bid.bidder}
+                  </p>
                 </div>
               </div>
             ))
@@ -61,5 +69,5 @@ export function CurrentBids() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

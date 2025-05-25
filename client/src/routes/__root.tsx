@@ -3,6 +3,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ModeToggle } from "@/components/mode-toggle";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const Route = createRootRoute({
   component: Root,
@@ -23,7 +24,12 @@ function Root() {
             <Link to="/about" className="text-sm">
               About
             </Link>
-            <a href="https://docs.songcoin.xyz" className="text-sm" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://docs.songcoin.xyz"
+              className="text-sm"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Buy
             </a>
           </div>
@@ -31,7 +37,9 @@ function Root() {
         </div>
         <hr />
         <Web3Provider>
-          <Outlet />
+          <TooltipProvider>
+            <Outlet />
+          </TooltipProvider>
         </Web3Provider>
       </ThemeProvider>
       <TanStackRouterDevtools />
