@@ -9,13 +9,20 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   useAccount,
   useBalance,
-  useReadContract,
+  useReadContracts,
   useWriteContract,
 } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { auctionAbi } from "@/lib/abi";
 import { auctionAddress, songcoinAddress } from "@/lib/constants";
-import { formatEther } from "viem";
+import {
+  erc20Abi,
+  formatEther,
+  formatUnits,
+  hashMessage,
+  parseUnits,
+  type Address,
+} from "viem";
 import { toast } from "sonner";
 import {
   Form,
@@ -32,6 +39,7 @@ interface FormContext {
         highest_bid: bigint;
       }
     | undefined;
+  allowance: bigint;
 }
 
 const formSchema = z.object({
@@ -56,7 +64,10 @@ const formSchema = z.object({
     .min(1, "Bid amount is required")
     .refine((val) => !isNaN(Number(val)), "Must be a valid number")
     .superRefine((val, ctx) => {
-      const currentRound = (ctx.path[0] as unknown as FormContext).currentRound;
+      const currentRound = (ctx.path[0] as unknown as FormContext)
+        ?.currentRound;
+      console.log("ctx", ctx);
+      console.log("currentRound", currentRound);
       if (!currentRound) return;
       if (Number(val) <= Number(formatEther(currentRound.highest_bid))) {
         ctx.addIssue({
@@ -71,11 +82,28 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function BiddingForm() {
   const { isConnected, address } = useAccount();
-  const { data: currentRound } = useReadContract({
-    abi: auctionAbi,
-    address: auctionAddress,
-    functionName: "get_current_round",
+  const result = useReadContracts({
+    contracts: [
+      {
+        abi: auctionAbi,
+        address: auctionAddress,
+        functionName: "get_current_round",
+      },
+      {
+        abi: erc20Abi,
+        address: songcoinAddress,
+        functionName: "allowance",
+        args: [address ?? ("" as Address), auctionAddress],
+      },
+    ],
+    query: {
+      enabled: !!address && isConnected,
+    },
   });
+
+  const currentRound = result.data?.[0]?.result;
+  const allowance = result.data?.[1]?.result;
+
   const { data: songCoinBalance } = useBalance({
     address: address,
     token: songcoinAddress,
@@ -96,18 +124,29 @@ export function BiddingForm() {
     },
     context: {
       currentRound,
+      allowance,
     } as FormContext,
   });
 
   const validateSpotifyEmbed = (url: string) => {
     try {
-      const iframeRegex =
-        /<iframe[^>]*src="(https:\/\/open\.spotify\.com\/embed\/track\/[^"]+)"[^>]*>/;
+      const iframeRegex = /<iframe[^>]*src="([^"]+)"[^>]*>/;
       const match = url.match(iframeRegex);
-      return match ? match[1] : null;
+      if (!match) return null;
+
+      const srcUrl = match[1];
+      // Validate that it's a Spotify embed URL
+      if (!srcUrl.startsWith("https://open.spotify.com/embed/track/")) {
+        return null;
+      }
+      return srcUrl;
     } catch {
       return null;
     }
+  };
+
+  const handleBalanceClick = () => {
+    form.setValue("bidAmount", formatEther(songCoinBalance?.value ?? 0n));
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -122,30 +161,60 @@ export function BiddingForm() {
     }
 
     setIsSubmitting(true);
-    try {
-      await writeContractAsync({
+    if (
+      allowance &&
+      Number(formatUnits(allowance ?? 0n, songCoinBalance?.decimals ?? 18)) <
+        Number(values.bidAmount)
+    ) {
+      toast.promise(
+        writeContractAsync({
+          abi: erc20Abi,
+          address: songcoinAddress,
+          functionName: "approve",
+          args: [
+            auctionAddress,
+            parseUnits(values.bidAmount, songCoinBalance?.decimals ?? 18),
+          ],
+        }),
+        {
+          loading: "Approving allowance...",
+          success: "Allowance approved successfully!",
+          error: (error) => {
+            console.error("Error approving allowance:", error);
+            return "Failed to approve allowance. Please try again. ";
+          },
+        },
+      );
+    }
+
+    toast.promise(
+      writeContractAsync({
         abi: auctionAbi,
         address: auctionAddress,
         functionName: "bid",
         args: [
-          BigInt(Math.floor(Number(values.bidAmount) * 1e18)), // Convert to wei
+          parseUnits(values.bidAmount, songCoinBalance?.decimals ?? 18),
           {
             title: values.songName,
             artist: values.artistName,
-            iframe_hash: "0x0", // This will be set by the contract
+            iframe_hash: hashMessage(spotifyUrl),
             iframe_url: spotifyUrl,
           },
         ],
-      });
-
-      toast.success("Bid placed successfully!");
-      form.reset();
-    } catch (error) {
-      console.error("Error placing bid:", error);
-      toast.error("Failed to place bid. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+      }),
+      {
+        loading: "Placing bid...",
+        success: () => {
+          form.reset();
+          return "Bid placed successfully!";
+        },
+        error: (error) => {
+          console.error("Error placing bid:", error);
+          return "Failed to place bid. Please try again. ";
+        },
+      },
+    );
+    setIsSubmitting(false);
   };
 
   return (
@@ -271,7 +340,13 @@ export function BiddingForm() {
                       </FormControl>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Gas fees will be calculated at submission
+                      Balance:{" "}
+                      <span
+                        className="underline hover:text-primary cursor-pointer"
+                        onClick={handleBalanceClick}
+                      >
+                        {formatEther(songCoinBalance?.value ?? 0n)} SONGCOIN
+                      </span>
                     </p>
                     <FormMessage />
                   </FormItem>
@@ -279,7 +354,7 @@ export function BiddingForm() {
               />
 
               <Button
-                className="mt-2 w-full"
+                className="mt-2 w-full cursor-pointer"
                 variant="secondary"
                 disabled={isSubmitting}
                 type="submit"
