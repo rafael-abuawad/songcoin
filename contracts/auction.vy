@@ -16,6 +16,7 @@ struct Song:
     title: String[32]
     artist: String[32]
     iframe_hash: bytes32
+    iframe_url: String[256]
 
 
 # @dev We define the ´Round´ struct.
@@ -105,7 +106,7 @@ def _genesis_round():
         ended=False,
         start_time=start_time,
         end_time=end_time,
-        song=Song(title="", artist="", iframe_hash=empty(bytes32))
+        song=Song(title="", artist="", iframe_hash=empty(bytes32), iframe_url="")
     )
 
 
@@ -201,7 +202,7 @@ def start_new_round():
         ended=False,
         start_time=start_time,
         end_time=end_time,
-        song=Song(title="", artist="", iframe_hash=empty(bytes32))
+        song=Song(title="", artist="", iframe_hash=empty(bytes32), iframe_url="")
     )
 
 

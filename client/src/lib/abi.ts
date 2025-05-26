@@ -31,6 +31,10 @@ export const auctionAbi = [
             name: "iframe_hash",
             type: "bytes32",
           },
+          {
+            name: "iframe_url",
+            type: "string",
+          },
         ],
         indexed: false,
         name: "song",
@@ -107,6 +111,10 @@ export const auctionAbi = [
           {
             name: "iframe_hash",
             type: "bytes32",
+          },
+          {
+            name: "iframe_url",
+            type: "string",
           },
         ],
         name: "_song",
@@ -187,6 +195,10 @@ export const auctionAbi = [
               {
                 name: "iframe_hash",
                 type: "bytes32",
+              },
+              {
+                name: "iframe_url",
+                type: "string",
               },
             ],
             name: "song",
@@ -353,6 +365,10 @@ export const auctionAbi = [
             name: "iframe_hash",
             type: "bytes32",
           },
+          {
+            name: "iframe_url",
+            type: "string",
+          },
         ],
         name: "",
         type: "tuple",
@@ -409,6 +425,10 @@ export const auctionAbi = [
               {
                 name: "iframe_hash",
                 type: "bytes32",
+              },
+              {
+                name: "iframe_url",
+                type: "string",
               },
             ],
             name: "song",

@@ -23,6 +23,7 @@ def test_initialization(auction, mock_erc20):
     assert current_round.song.iframe_hash == HexBytes(
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     )
+    assert current_round.song.iframe_url == ""
 
 
 def test_bid_simple(auction, mock_erc20, bidder1, bidder2, song, deployer):
@@ -49,6 +50,8 @@ def test_bid_simple(auction, mock_erc20, bidder1, bidder2, song, deployer):
     assert round_data.end_time == auction.get_current_round().end_time
     assert round_data.song.title == song["title"]
     assert round_data.song.artist == song["artist"]
+    assert round_data.song.iframe_hash == HexBytes(song["iframe_hash"])
+    assert round_data.song.iframe_url == song["iframe_url"]
 
     # Check pending returns for outbid bidder
     assert auction.get_pending_returns(bidder1, id) == 0
@@ -64,6 +67,9 @@ def test_bid_simple(auction, mock_erc20, bidder1, bidder2, song, deployer):
     assert round_data.start_time == auction.get_current_round().start_time
     assert round_data.end_time == auction.get_current_round().end_time
     assert round_data.song.title == song["title"]
+    assert round_data.song.artist == song["artist"]
+    assert round_data.song.iframe_hash == HexBytes(song["iframe_hash"])
+    assert round_data.song.iframe_url == song["iframe_url"]
 
     # Check pending returns for outbid bidder
     assert auction.get_pending_returns(bidder1, id) == 100
@@ -190,6 +196,7 @@ def test_end_round_validation(chain, auction, mock_erc20, deployer, bidder1, son
     assert ended_round.song.title == song["title"]
     assert ended_round.song.artist == song["artist"]
     assert ended_round.song.iframe_hash == HexBytes(song["iframe_hash"])
+    assert ended_round.song.iframe_url == song["iframe_url"]
 
     # Try to end round again
     with ape.reverts("auction: round has already ended"):
@@ -237,6 +244,7 @@ def test_start_new_round(chain, auction, mock_erc20, deployer, bidder1, song):
     assert round_data.song.iframe_hash == HexBytes(
         "0x0000000000000000000000000000000000000000000000000000000000000000"
     )
+    assert round_data.song.iframe_url == ""
 
 
 def test_start_new_round_validation(auction, mock_erc20, deployer, bidder1, song):
@@ -305,6 +313,7 @@ def test_song_bid_event(auction, mock_erc20, bidder1, song, deployer):
     assert song_bid_event.song[0] == song["title"]  # title
     assert song_bid_event.song[1] == song["artist"]  # artist
     assert song_bid_event.song[2] == HexBytes(song["iframe_hash"])  # iframe_hash
+    assert song_bid_event.song[3] == song["iframe_url"]  # iframe_url
 
 
 def test_multiple_rounds(chain, auction, mock_erc20, deployer, bidder1, bidder2, song):

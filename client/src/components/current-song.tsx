@@ -2,13 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Clock, ExternalLink, AlertCircle, Sparkles } from "lucide-react";
-import { useAccount, useReadContract } from "wagmi";
+import { Clock, ExternalLink, AlertCircle } from "lucide-react";
+import { useReadContract } from "wagmi";
 import { auctionAbi } from "@/lib/abi";
 import { formatEther, zeroAddress } from "viem";
 import { auctionAddress } from "@/lib/constants";
-import { Button } from "./ui/button";
-import { ConnectKitButton } from "connectkit";
+import { CurrentBid } from "./current-bid";
 
 export function CurrentSong() {
   const [timeLeft, setTimeLeft] = useState({
@@ -22,14 +21,11 @@ export function CurrentSong() {
     isLoading,
     isFetching,
     isError,
-    error,
   } = useReadContract({
     abi: auctionAbi,
     address: auctionAddress,
     functionName: "get_current_round",
   });
-
-  const { isConnected } = useAccount();
 
   useEffect(() => {
     if (!currentRound) return;
@@ -77,16 +73,15 @@ export function CurrentSong() {
     );
   }
 
-  console.log({ currentRound });
-  console.log({ error, isError });
-
   if (isError || !currentRound) {
     return (
       <Card className="overflow-hidden p-0 pb-6 gap-4">
         <div className="aspect-video w-full bg-muted flex items-center justify-center">
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <AlertCircle className="h-8 w-8" />
-            <p className="text-sm">No active auction at the moment</p>
+            <p className="text-sm">
+              An error occurred, please refresh the page or try again later.
+            </p>
           </div>
         </div>
 
@@ -95,12 +90,12 @@ export function CurrentSong() {
             <div className="text-sm text-muted-foreground">
               Waiting for the next round
             </div>
-            <div className="text-lg font-bold">-- ETH</div>
+            <div className="text-lg font-bold">-- SONGCOIN</div>
           </div>
 
           <div className="flex items-center justify-between pt-2">
             <div className="text-xs text-muted-foreground">
-              No transaction available
+              No data available
             </div>
             <Badge variant="outline" className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
@@ -118,40 +113,21 @@ export function CurrentSong() {
     return (
       <>
         <Card className="overflow-hidden p-0 gap-4">
-          <div className="w-full h-[352px]">
-            <iframe
-              style={{ borderRadius: "12px" }}
-              src="https://open.spotify.com/embed/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator"
-              width="100%"
-              height="352"
-              allowFullScreen
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-            ></iframe>
+          <div className="w-full h-[352px] rounded-xl flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-bold text-primary animate-pulse">
+                Be the First to Bid!
+              </h2>
+              <p className="text-muted-foreground max-w-md mx-auto text-sm px-6">
+                Place your bid now and become the first owner of this exclusive
+                song promotion platform. Your bid could make history in the
+                music promotion space.
+              </p>
+            </div>
           </div>
         </Card>
-        <div className="p-3 bg-muted rounded-lg">
-          <p className="text-sm text-muted-foreground flex items-center gap-2 justify-center">
-            Place the first bid and make history! The floor is yours to set.
-          </p>
-          {isConnected ? (
-            <Button className="w-full mt-4">
-              <Sparkles className="h-4 w-4" />
-              Place a bid
-            </Button>
-          ) : (
-            <ConnectKitButton.Custom>
-              {({ show }) => {
-                return (
-                  <Button className="w-full mt-4" onClick={show}>
-                    <Sparkles className="h-4 w-4" />
-                    Connect your wallet to bid
-                  </Button>
-                );
-              }}
-            </ConnectKitButton.Custom>
-          )}
-        </div>
+
+        <CurrentBid currentRound={currentRound} />
       </>
     );
   }
@@ -161,11 +137,14 @@ export function CurrentSong() {
       <Card className="overflow-hidden p-0 pb-6 gap-4">
         <div className="aspect-video w-full">
           <iframe
-            src={currentRound.song.iframe_hash}
-            className="h-full w-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            style={{ borderRadius: "12px" }}
+            src="https://open.spotify.com/embed/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator"
+            width="100%"
+            height="352"
             allowFullScreen
-          ></iframe>
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+          />
         </div>
 
         <CardContent className="pt-2">
@@ -177,7 +156,7 @@ export function CurrentSong() {
               </span>
             </div>
             <div className="text-lg font-bold">
-              {formatEther(currentRound.highest_bid)} ETH
+              {formatEther(currentRound.highest_bid)} SONGCOIN
             </div>
           </div>
 
@@ -229,7 +208,7 @@ export function CurrentSong() {
             </span>
           </div>
           <div className="text-lg font-bold">
-            {formatEther(currentRound.highest_bid)} ETH
+            {formatEther(currentRound.highest_bid)} SONGCOIN
           </div>
         </div>
 

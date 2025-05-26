@@ -7,6 +7,8 @@ def main():
     if network_name == "local":
         deployer = accounts.test_accounts.generate_test_account()
         deployer.balance += int(1e18)
+        # Fund Brave test wallet
+        deployer.transfer("0xC14fF56E720f79d08413CE00533256433D2ED929", int(1e18))
         songcoin = project.mock_erc20.deploy(
             "SongCoin", "SONG", 18, 1000000, "SongCoin", "1.0.0", sender=deployer
         )

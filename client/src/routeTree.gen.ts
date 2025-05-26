@@ -11,10 +11,17 @@
 // Import Routes
 
 import { Route as rootRoute } from "./routes/__root";
+import { Route as BidImport } from "./routes/bid";
 import { Route as AboutImport } from "./routes/about";
 import { Route as IndexImport } from "./routes/index";
 
 // Create/Update Routes
+
+const BidRoute = BidImport.update({
+  id: "/bid",
+  path: "/bid",
+  getParentRoute: () => rootRoute,
+} as any);
 
 const AboutRoute = AboutImport.update({
   id: "/about",
@@ -46,6 +53,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AboutImport;
       parentRoute: typeof rootRoute;
     };
+    "/bid": {
+      id: "/bid";
+      path: "/bid";
+      fullPath: "/bid";
+      preLoaderRoute: typeof BidImport;
+      parentRoute: typeof rootRoute;
+    };
   }
 }
 
@@ -54,36 +68,41 @@ declare module "@tanstack/react-router" {
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
+  "/bid": typeof BidRoute;
 }
 
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
+  "/bid": typeof BidRoute;
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute;
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
+  "/bid": typeof BidRoute;
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/about";
+  fullPaths: "/" | "/about" | "/bid";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/about";
-  id: "__root__" | "/" | "/about";
+  to: "/" | "/about" | "/bid";
+  id: "__root__" | "/" | "/about" | "/bid";
   fileRoutesById: FileRoutesById;
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AboutRoute: typeof AboutRoute;
+  BidRoute: typeof BidRoute;
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  BidRoute: BidRoute,
 };
 
 export const routeTree = rootRoute
@@ -97,7 +116,8 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/about"
+        "/about",
+        "/bid"
       ]
     },
     "/": {
@@ -105,6 +125,9 @@ export const routeTree = rootRoute
     },
     "/about": {
       "filePath": "about.tsx"
+    },
+    "/bid": {
+      "filePath": "bid.tsx"
     }
   }
 }

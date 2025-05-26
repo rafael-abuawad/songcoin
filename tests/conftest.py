@@ -26,12 +26,22 @@ def bidder3(accounts):
 
 @pytest.fixture(scope="module")
 def song():
-    return {"title": SONG_NAME, "artist": ARTIST_NAME, "iframe_hash": IFRAME_HASH}
+    return {
+        "title": SONG_NAME,
+        "artist": ARTIST_NAME,
+        "iframe_hash": IFRAME_HASH,
+        "iframe_url": "https://open.spotify.com/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator",
+    }
 
 
 @pytest.fixture(scope="module")
 def song2():
-    return {"title": SONG_NAME2, "artist": ARTIST_NAME2, "iframe_hash": IFRAME_HASH2}
+    return {
+        "title": SONG_NAME2,
+        "artist": ARTIST_NAME2,
+        "iframe_hash": IFRAME_HASH2,
+        "iframe_url": "https://open.spotify.com/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator",
+    }
 
 
 @pytest.fixture(scope="module")
