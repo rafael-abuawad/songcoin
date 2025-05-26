@@ -110,6 +110,14 @@ def _genesis_round():
     )
 
 
+@internal
+@pure
+def _check_song_url(iframe_url: String[256]) -> bool:
+    spotify_url: String[256] = "https://open.spotify.com/embed/track/"
+    if len(iframe_url) < len(spotify_url):
+        return False
+    return slice(iframe_url, 0, len(spotify_url)) == spotify_url
+
 # @dev We define the `bid` external function.
 # It is used to bid on the current round with the value sent.
 @external
@@ -123,6 +131,7 @@ def bid(_amount: uint256, _song: Song):
     assert block.timestamp >= r.start_time, "auction: round has not started"
     assert block.timestamp < r.end_time, "auction: round is over"
     assert _amount > r.highest_bid, "auction: bid is too low"
+    assert self._check_song_url(_song.iframe_url), "auction: invalid song url"
 
     # Transfer Songcoin from sender to contract
     assert extcall songcoin.transferFrom(msg.sender, self, _amount, default_return_value=False), "auction: transfer failed"
@@ -266,3 +275,9 @@ def get_round_end_time(_id: uint256) -> uint256:
 @view
 def get_round_song(_id: uint256) -> Song:
     return self.rounds[_id].song
+
+
+@external
+@pure
+def check_song_url(iframe_url: String[256]) -> bool:
+    return self._check_song_url(iframe_url)

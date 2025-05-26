@@ -30,7 +30,7 @@ def song():
         "title": SONG_NAME,
         "artist": ARTIST_NAME,
         "iframe_hash": IFRAME_HASH,
-        "iframe_url": "https://open.spotify.com/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator",
+        "iframe_url": "https://open.spotify.com/embed/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator",
     }
 
 
@@ -40,7 +40,7 @@ def song2():
         "title": SONG_NAME2,
         "artist": ARTIST_NAME2,
         "iframe_hash": IFRAME_HASH2,
-        "iframe_url": "https://open.spotify.com/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator",
+        "iframe_url": "https://open.spotify.com/embed/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator",
     }
 
 

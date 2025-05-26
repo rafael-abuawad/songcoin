@@ -477,3 +477,37 @@ def test_bid_without_approval(auction, mock_erc20, bidder1, song, deployer):
     # Try to bid without approval
     with ape.reverts("erc20: insufficient allowance"):
         auction.bid(100, song, sender=bidder1)
+
+
+def test_check_song_url(auction, mock_erc20, bidder1, bidder2, song, deployer):
+    """Test check song url"""
+    # Mint tokens to bidders
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+
+    # Approve tokens for bidders
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+
+    # Set round ID
+    id = auction.get_current_round_id()
+    song_copy = song.copy()
+
+    song_copy["iframe_url"] = "https://hack.com"
+    print(song_copy)
+    with ape.reverts("auction: invalid song url"):
+        auction.bid(100, song_copy, sender=bidder1)
+
+
+def test_check_song_url_invalid(auction, song):
+    assert auction.check_song_url(song["iframe_url"])
+    assert not auction.check_song_url("https://hack.com")
+    assert not auction.check_song_url(
+        "https://track/1IKnkAtTKion90wF8yxSgS?utm_source=generator"
+    )
+    assert not auction.check_song_url(
+        "https://steal.com/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator/"
+    )
+    assert not auction.check_song_url(
+        "https://com/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator"
+    )

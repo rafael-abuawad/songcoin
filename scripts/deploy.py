@@ -1,17 +1,21 @@
 import click
 from ape import networks, accounts, project
 
+BRAVE_TEST_WALLET = "0xFC65A46ea323Ec049A568F7F39150C5b83f72305"
+
 
 def main():
     network_name = networks.provider.network.name
     if network_name == "local":
         deployer = accounts.test_accounts.generate_test_account()
-        deployer.balance += int(1e18)
-        # Fund Brave test wallet
-        deployer.transfer("0xC14fF56E720f79d08413CE00533256433D2ED929", int(1e18))
+        deployer.balance += int(100e18)
         songcoin = project.mock_erc20.deploy(
             "SongCoin", "SONG", 18, 1000000, "SongCoin", "1.0.0", sender=deployer
         )
+
+        # Fund brave test wallet
+        deployer.transfer(BRAVE_TEST_WALLET, int(1e18))
+        songcoin.mint(BRAVE_TEST_WALLET, int(150e18), sender=deployer)
     else:
         deployer = accounts.load("songcoin")
         songcoin = "0x0000000000000000000000000000000000000000"
