@@ -1,7 +1,7 @@
 import { CurrentSong } from "@/components/current-song";
-import { BiddingForm } from "@/components/bidding-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { CurrentBids } from "@/components/current-bids";
+import { CurrentBid } from "@/components/current-bid";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -15,6 +15,7 @@ function Index() {
       </h1>
       <div className="flex flex-col gap-6">
         <CurrentSong />
+        <CurrentBid />
         <CurrentBids />
       </div>
     </div>

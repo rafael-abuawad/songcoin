@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/sonner";
+import { CurrentRoundProvider } from "@/context/current-round.context";
 
 export const Route = createRootRoute({
   component: Root,
@@ -18,13 +19,15 @@ function Root() {
       <ThemeProvider>
         <SidebarProvider defaultOpen={false}>
           <Web3Provider>
-            <TooltipProvider>
-              <AppSidebar />
-              <main className="flex flex-col min-h-screen min-w-screen">
-                <Navbar />
-                <Outlet />
-              </main>
-            </TooltipProvider>
+            <CurrentRoundProvider>
+              <TooltipProvider>
+                <AppSidebar />
+                <main className="flex flex-col min-h-screen min-w-screen">
+                  <Navbar />
+                  <Outlet />
+                </main>
+              </TooltipProvider>
+            </CurrentRoundProvider>
           </Web3Provider>
         </SidebarProvider>
       </ThemeProvider>

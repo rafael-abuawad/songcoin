@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { truncateAddress } from "@/lib/utils";
 import { Music } from "lucide-react";
 
 export function CurrentBids() {
@@ -60,7 +61,7 @@ export function CurrentBids() {
                     Ξ {bid.bidAmount.toFixed(3)}
                   </p>
                   <p className="font-mono text-xs text-muted-foreground">
-                    {bid.bidder}
+                    {truncateAddress(bid.bidder)}
                   </p>
                 </div>
               </div>

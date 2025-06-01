@@ -380,6 +380,35 @@ export const auctionAbi = [
   {
     inputs: [
       {
+        name: "iframe_url",
+        type: "string",
+      },
+    ],
+    name: "check_song_url",
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "pure",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "is_there_a_last_winning_round",
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
         name: "arg0",
         type: "uint256",
       },
@@ -461,6 +490,66 @@ export const auctionAbi = [
       {
         name: "",
         type: "bool",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "last_winning_round",
+    outputs: [
+      {
+        components: [
+          {
+            name: "id",
+            type: "uint256",
+          },
+          {
+            name: "highest_bidder",
+            type: "address",
+          },
+          {
+            name: "highest_bid",
+            type: "uint256",
+          },
+          {
+            name: "ended",
+            type: "bool",
+          },
+          {
+            name: "start_time",
+            type: "uint256",
+          },
+          {
+            name: "end_time",
+            type: "uint256",
+          },
+          {
+            components: [
+              {
+                name: "title",
+                type: "string",
+              },
+              {
+                name: "artist",
+                type: "string",
+              },
+              {
+                name: "iframe_hash",
+                type: "bytes32",
+              },
+              {
+                name: "iframe_url",
+                type: "string",
+              },
+            ],
+            name: "song",
+            type: "tuple",
+          },
+        ],
+        name: "",
+        type: "tuple",
       },
     ],
     stateMutability: "view",

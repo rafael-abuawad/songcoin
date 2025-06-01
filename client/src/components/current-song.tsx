@@ -1,13 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Clock, ExternalLink, AlertCircle } from "lucide-react";
-import { useReadContract } from "wagmi";
-import { auctionAbi } from "@/lib/abi";
 import { formatEther, zeroAddress } from "viem";
-import { auctionAddress } from "@/lib/constants";
-import { CurrentBid } from "./current-bid";
+import { truncateAddress } from "@/lib/utils";
+import { CurrentRoundContext } from "@/context/current-round.context";
 
 export function CurrentSong() {
   const [timeLeft, setTimeLeft] = useState({
@@ -17,24 +15,26 @@ export function CurrentSong() {
   });
 
   const {
-    data: currentRound,
+    currentRound,
     isLoading,
     isFetching,
     isError,
-  } = useReadContract({
-    abi: auctionAbi,
-    address: auctionAddress,
-    functionName: "get_current_round",
-  });
+    lastWinningRound,
+    isThereALastWinningRound,
+  } = useContext(CurrentRoundContext);
+  const displayRound = isThereALastWinningRound
+    ? lastWinningRound
+    : currentRound;
 
   useEffect(() => {
     if (!currentRound) return;
 
     const timer = setInterval(() => {
       const now = new Date();
-      const difference =
-        new Date(parseInt(currentRound.end_time.toString())).getTime() -
-        now.getTime();
+      const endTime = new Date(
+        parseInt(currentRound.end_time.toString()) * 1000,
+      );
+      const difference = endTime.getTime() - now.getTime();
 
       if (difference <= 0) {
         clearInterval(timer);
@@ -73,7 +73,7 @@ export function CurrentSong() {
     );
   }
 
-  if (isError || !currentRound) {
+  if (isError || !currentRound || !lastWinningRound || !displayRound) {
     return (
       <Card className="overflow-hidden p-0 pb-6 gap-4">
         <div className="aspect-video w-full bg-muted flex items-center justify-center">
@@ -107,9 +107,9 @@ export function CurrentSong() {
     );
   }
 
-  const isNoBids = currentRound.highest_bidder === zeroAddress;
+  const thereAreNoBids = displayRound.highest_bidder === zeroAddress;
 
-  if (isNoBids) {
+  if (thereAreNoBids) {
     return (
       <>
         <Card className="overflow-hidden p-0 gap-4">
@@ -126,101 +126,49 @@ export function CurrentSong() {
             </div>
           </div>
         </Card>
-
-        <CurrentBid currentRound={currentRound} />
       </>
-    );
-  }
-
-  if (currentRound.ended) {
-    return (
-      <Card className="overflow-hidden p-0 pb-6 gap-4">
-        <div className="aspect-video w-full">
-          <iframe
-            style={{ borderRadius: "12px" }}
-            src="https://open.spotify.com/embed/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator"
-            width="100%"
-            height="352"
-            allowFullScreen
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
-          />
-        </div>
-
-        <CardContent className="pt-2">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Winner{" "}
-              <span className="font-mono text-xs font-semibold">
-                {currentRound.highest_bidder}
-              </span>
-            </div>
-            <div className="text-lg font-bold">
-              {formatEther(currentRound.highest_bid)} SONGCOIN
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-xs text-muted-foreground">
-              <a
-                href={`https://etherscan.io/address/${currentRound.highest_bidder}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 hover:text-foreground"
-              >
-                View on Etherscan <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Round Ended
-            </Badge>
-          </div>
-
-          <div className="mt-4 p-3 bg-muted rounded-lg">
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              Next round coming soon...
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     );
   }
 
   return (
     <Card className="overflow-hidden p-0 pb-6 gap-4">
-      <div className="aspect-video w-full">
+      <div className="h-[352px] w-full">
         <iframe
-          src={currentRound.song.iframe_hash}
+          src={displayRound.song.iframe_url}
           className="h-full w-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-        ></iframe>
+        />
       </div>
 
       <CardContent className="pt-2">
         <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Bid by{" "}
-            <span className="font-mono text-xs font-semibold">
-              {currentRound.highest_bidder}
-            </span>
+          <div className="text-sm text-muted-foreground flex items-center gap-1">
+            Bid by
+            <a
+              href={`https://basescan.io/address/${displayRound.highest_bidder}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="font-mono text-xs font-semibold hover:text-foreground">
+                {truncateAddress(displayRound.highest_bidder)}
+              </span>
+            </a>
           </div>
           <div className="text-lg font-bold">
-            {formatEther(currentRound.highest_bid)} SONGCOIN
+            {formatEther(displayRound.highest_bid)} SONGCOIN
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-2">
           <div className="text-xs text-muted-foreground">
             <a
-              href={`https://etherscan.io/address/${currentRound.highest_bidder}`}
+              href={`https://basescan.io/address/${displayRound.highest_bidder}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-foreground"
             >
-              View on Etherscan <ExternalLink className="h-3 w-3" />
+              View on Basescan <ExternalLink className="h-3 w-3" />
             </a>
           </div>
           <Badge variant="outline" className="flex items-center gap-1">

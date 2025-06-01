@@ -40,7 +40,15 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <ConnectKitButton.Custom>
-          {({ show }) => {
+          {({ show, truncatedAddress, isConnected }) => {
+            if (isConnected) {
+              return (
+                <Button className="w-full mt-4" onClick={show}>
+                  <Sparkles className="h-4 w-4" />
+                  {truncatedAddress}
+                </Button>
+              );
+            }
             return (
               <Button className="w-full mt-4" onClick={show}>
                 <Sparkles className="h-4 w-4" />

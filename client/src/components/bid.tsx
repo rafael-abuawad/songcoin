@@ -2,7 +2,7 @@ import { Music } from "lucide-react";
 import type { Round } from "@/lib/types";
 import { formatEther } from "viem";
 
-export default function Bid({ bid }: { bid: Round }) {
+export function Bid({ bid }: { bid: Round }) {
   const song = bid.song;
   return (
     <div
