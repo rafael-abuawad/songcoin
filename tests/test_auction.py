@@ -511,3 +511,137 @@ def test_check_song_url_invalid(auction, song):
     assert not auction.check_song_url(
         "https://com/track/1IKnkAtTKion90wF8yxSgS?utm_source=generator"
     )
+
+
+def test_last_winning_round(
+    chain, auction, mock_erc20, deployer, bidder1, bidder2, song
+):
+    # Mint tokens to bidders
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+
+    # Approve tokens for bidders
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+
+    # Round 1: bidder1 gets outbid
+    bidder1_bid1 = 100
+    auction.bid(bidder1_bid1, song, sender=bidder1)
+    bidder2_bid1 = 200
+    auction.bid(bidder2_bid1, song, sender=bidder2)
+
+    # Set round ID
+    round1_id = auction.get_current_round_id()
+
+    # End round 1
+    current_round = auction.get_current_round()
+    chain.pending_timestamp += current_round.end_time
+    chain.mine()
+    auction.end_round(sender=deployer)
+
+    # Check last winning round after round 1
+    last_winning_round = auction.last_winning_round()
+    assert last_winning_round.id == round1_id
+    assert last_winning_round.highest_bidder == bidder2.address
+    assert last_winning_round.highest_bid == bidder2_bid1
+    assert last_winning_round.ended
+    assert last_winning_round.song.title == song["title"]
+    assert last_winning_round.song.artist == song["artist"]
+    assert last_winning_round.song.iframe_hash == HexBytes(song["iframe_hash"])
+    assert last_winning_round.song.iframe_url == song["iframe_url"]
+
+    # Start round 2
+    auction.start_new_round(sender=deployer)
+
+    # Round 2: bidder1 gets outbid again
+    bidder1_bid2 = 300
+    auction.bid(bidder1_bid2, song, sender=bidder1)
+    bidder2_bid2 = 400
+    auction.bid(bidder2_bid2, song, sender=bidder2)
+
+    # End round 2
+    current_round = auction.get_current_round()
+    chain.pending_timestamp += current_round.end_time
+    chain.mine()
+    auction.end_round(sender=deployer)
+
+    # Check last winning round after round 2
+    last_winning_round = auction.last_winning_round()
+    assert last_winning_round.id == round1_id + 1
+    assert last_winning_round.highest_bidder == bidder2.address
+    assert last_winning_round.highest_bid == bidder2_bid2
+    assert last_winning_round.ended
+    assert last_winning_round.song.title == song["title"]
+    assert last_winning_round.song.artist == song["artist"]
+    assert last_winning_round.song.iframe_hash == HexBytes(song["iframe_hash"])
+    assert last_winning_round.song.iframe_url == song["iframe_url"]
+
+
+def test_latests_bids(chain, auction, mock_erc20, deployer, bidder1, bidder2, song):
+    # Mint tokens to bidders
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+
+    # Approve tokens for bidders
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+
+    # Set round ID
+    round_id = auction.get_current_round_id()
+
+    # Create different songs for testing
+    song1 = song.copy()
+    song1["title"] = "Song 1"
+    song1["artist"] = "Artist 1"
+    song1["iframe_hash"] = "0x" + "1" * 64
+    song1["iframe_url"] = "https://open.spotify.com/embed/track/1"
+
+    song2 = song.copy()
+    song2["title"] = "Song 2"
+    song2["artist"] = "Artist 2"
+    song2["iframe_hash"] = "0x" + "2" * 64
+    song2["iframe_url"] = "https://open.spotify.com/embed/track/2"
+
+    # First bid with song1
+    auction.bid(100, song1, sender=bidder1)
+
+    # Check latests_bids after first bid
+    latest_bids = auction.latests_bids(round_id)
+    assert len(latest_bids) == 1
+    assert latest_bids[0].title == song1["title"]
+    assert latest_bids[0].artist == song1["artist"]
+    assert latest_bids[0].iframe_hash == HexBytes(song1["iframe_hash"])
+    assert latest_bids[0].iframe_url == song1["iframe_url"]
+
+    # Second bid with song2
+    auction.bid(200, song2, sender=bidder2)
+
+    # Check latests_bids after second bid
+    latest_bids = auction.latests_bids(round_id)
+    assert len(latest_bids) == 2
+    assert latest_bids[0].title == song1["title"]
+    assert latest_bids[0].artist == song1["artist"]
+    assert latest_bids[0].iframe_hash == HexBytes(song1["iframe_hash"])
+    assert latest_bids[0].iframe_url == song1["iframe_url"]
+    assert latest_bids[1].title == song2["title"]
+    assert latest_bids[1].artist == song2["artist"]
+    assert latest_bids[1].iframe_hash == HexBytes(song2["iframe_hash"])
+    assert latest_bids[1].iframe_url == song2["iframe_url"]
+
+    # End round and start new round
+    current_round = auction.get_current_round()
+    chain.pending_timestamp += current_round.end_time
+    chain.mine()
+    auction.end_round(sender=deployer)
+    auction.start_new_round(sender=deployer)
+
+    # Check that latests_bids is empty for new round
+    new_round_id = auction.get_current_round_id()
+    latest_bids = auction.latests_bids(new_round_id)
+    assert len(latest_bids) == 0
+
+    # Verify previous round's latests_bids is preserved
+    previous_latest_bids = auction.latests_bids(round_id)
+    assert len(previous_latest_bids) == 2
+    assert previous_latest_bids[0].title == song1["title"]
+    assert previous_latest_bids[1].title == song2["title"]

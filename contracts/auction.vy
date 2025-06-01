@@ -54,6 +54,17 @@ songcoin: public(immutable(IERC20))
 genesis_round_called: public(bool)
 
 
+# @dev We define the `last_winning_round` public variable.
+# It is the last winning round.
+last_winning_round: public(Round)
+
+
+# @dev We define the `latests_bids` public variable.
+# It is a `HashMap` of `uint256` and `DynArray[Song, length=10]`.
+# It keeps track of the latest bids for each round.
+latests_bids: public(HashMap[uint256, DynArray[Song, 128]])
+
+
 # @dev We define the `ROUND_DURATION` constant.
 # It is the duration of a round in seconds.
 ROUND_DURATION: constant(uint256) = 60 * 60 * 24 # 1 day
@@ -148,6 +159,9 @@ def bid(_amount: uint256, _song: Song):
     # Emit SongBid event
     log SongBid(sender=msg.sender, round_id=id, amount=_amount, song=_song)
 
+    # Add song to latest bids
+    self.latests_bids[id].append(_song)
+
 
 # @dev We define the `withdraw` external function.
 # It is used to withdraw a previously refunded bid for a specific round.
@@ -189,6 +203,7 @@ def end_round():
     # Mark round as ended
     self.rounds[id].ended = True
     self.pending_returns[active_round.highest_bidder][id] = 0
+    self.last_winning_round = self.rounds[id]
 
 
 # Start a new round
@@ -281,3 +296,9 @@ def get_round_song(_id: uint256) -> Song:
 @pure
 def check_song_url(iframe_url: String[256]) -> bool:
     return self._check_song_url(iframe_url)
+
+
+@external
+@view
+def is_there_a_last_winning_round() -> bool:
+    return self.last_winning_round.highest_bidder != empty(address)
