@@ -5,13 +5,17 @@ import { Music } from "lucide-react";
 import { useReadContract } from "wagmi";
 
 export function LatestBids() {
-  const { data: currentRoundId} = useReadContract({
+  const { data: currentRoundId } = useReadContract({
     address: auctionAddress,
     abi: auctionAbi,
     functionName: "get_current_round_id",
   });
 
-  const { data: latestBids, error, isLoading } = useReadContract({
+  const {
+    data: latestBids,
+    error,
+    isLoading,
+  } = useReadContract({
     address: auctionAddress,
     abi: auctionAbi,
     functionName: "get_latests_bidded_songs",
@@ -23,7 +27,8 @@ export function LatestBids() {
 
   console.log({ latestBids, currentRoundId, error, isLoading });
 
-  const emptyLatestBids = latestBids?.filter((bid) => bid.title !== "").length === 0;
+  const emptyLatestBids =
+    latestBids?.filter((bid) => bid.title !== "").length === 0;
 
   return (
     <Card>
@@ -37,24 +42,26 @@ export function LatestBids() {
               No latest bids yet. Be the first!
             </p>
           ) : (
-            latestBids.filter((bid) => bid.title !== "").map((bid, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between rounded-lg border bg-secondary/10 p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary">
-                    <Music className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{bid.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {bid.artist}
-                    </p>
+            latestBids
+              .filter((bid) => bid.title !== "")
+              .map((bid, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded-lg border bg-secondary/10 p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary">
+                      <Music className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{bid.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {bid.artist}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))
           )}
         </div>
       </CardContent>
