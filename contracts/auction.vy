@@ -40,12 +40,11 @@ event SongBid:
 
 
 # @dev We define the `rounds` public variable.
-# It is a `HashMap` of `uint256` and `Round`.
+# Round ID -> Round
 rounds: public(HashMap[uint256, Round])
 
 
 # @dev We define the `songcoin` public variable.
-# It is an immutable `IERC20` token.
 songcoin: public(immutable(IERC20))
 
 
@@ -59,14 +58,23 @@ genesis_round_called: public(bool)
 last_winning_round: public(Round)
 
 
-# @dev We define the `latests_bids` public variable.
-# It is a `HashMap` of `uint256` and `DynArray[Song, length=10]`.
-# It keeps track of the latest bids for each round.
-latests_bids: public(HashMap[uint256, DynArray[Song, 128]])
+# @dev We define the `MAX_NUMBER_OF_LATESTS_BIDDED_SONGS` constant.
+MAX_NUMBER_OF_LATESTS_BIDDED_SONGS: constant(uint256) = 3
+
+
+# @dev We define the `_latests_bidded_songs_index` public variable.
+# Round ID -> Index of the latests bidded songs
+_latests_bidded_songs_index: public(HashMap[uint256, uint256])
+
+
+# @dev We define the `latests_bidded_songs` public variable.
+# It is a `HashMap` of `uint256` and `Song[]`.
+# It keeps track of the latest bidded songs for each round.
+# Round ID -> Song[]
+latests_bidded_songs: public(HashMap[uint256, Song[MAX_NUMBER_OF_LATESTS_BIDDED_SONGS]])
 
 
 # @dev We define the `ROUND_DURATION` constant.
-# It is the duration of a round in seconds.
 ROUND_DURATION: constant(uint256) = 60 * 60 * 24 # 1 day
 
 
@@ -129,6 +137,25 @@ def _check_song_url(iframe_url: String[256]) -> bool:
         return False
     return slice(iframe_url, 0, len(spotify_url)) == spotify_url
 
+
+@internal
+def _add_song_to_latests_bidded_songs(id: uint256, song: Song):
+    """
+    Add a song to the top (end) of the list.
+    If full, shift left (discard the first one) and add to end.
+    """
+    index: uint256 = self._latests_bidded_songs_index[id]
+
+    if index < MAX_NUMBER_OF_LATESTS_BIDDED_SONGS:
+        self.latests_bidded_songs[id][index] = song
+        self._latests_bidded_songs_index[id] = index + 1
+    else:
+        # Shift all songs left by one to make room
+        for i: uint256 in range(MAX_NUMBER_OF_LATESTS_BIDDED_SONGS - 1):
+            self.latests_bidded_songs[id][i] = self.latests_bidded_songs[id][i + 1]
+        self.latests_bidded_songs[id][MAX_NUMBER_OF_LATESTS_BIDDED_SONGS - 1] = song
+
+
 # @dev We define the `bid` external function.
 # It is used to bid on the current round with the value sent.
 @external
@@ -159,8 +186,8 @@ def bid(_amount: uint256, _song: Song):
     # Emit SongBid event
     log SongBid(sender=msg.sender, round_id=id, amount=_amount, song=_song)
 
-    # Add song to latest bids
-    self.latests_bids[id].append(_song)
+    # Add song to latests bidded songs
+    self._add_song_to_latests_bidded_songs(id, _song)
 
 
 # @dev We define the `withdraw` external function.
@@ -302,3 +329,9 @@ def check_song_url(iframe_url: String[256]) -> bool:
 @view
 def is_there_a_last_winning_round() -> bool:
     return self.last_winning_round.highest_bidder != empty(address)
+
+
+@external
+@view
+def get_latests_bidded_songs(_id: uint256) -> Song[MAX_NUMBER_OF_LATESTS_BIDDED_SONGS]:
+    return self.latests_bidded_songs[_id]

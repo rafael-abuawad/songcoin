@@ -577,71 +577,59 @@ def test_last_winning_round(
     assert last_winning_round.song.iframe_url == song["iframe_url"]
 
 
-def test_latests_bids(chain, auction, mock_erc20, deployer, bidder1, bidder2, song):
+def test_get_latests_bids(chain, auction, mock_erc20, deployer, bidder1, song):
     # Mint tokens to bidders
-    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
-    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+    mock_erc20.mint(bidder1, int(100e18), sender=deployer)
 
     # Approve tokens for bidders
-    mock_erc20.approve(auction.address, 1000, sender=bidder1)
-    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+    mock_erc20.approve(auction.address, int(100e18), sender=bidder1)
 
     # Set round ID
     round_id = auction.get_current_round_id()
 
-    # Create different songs for testing
-    song1 = song.copy()
-    song1["title"] = "Song 1"
-    song1["artist"] = "Artist 1"
-    song1["iframe_hash"] = "0x" + "1" * 64
-    song1["iframe_url"] = "https://open.spotify.com/embed/track/1"
+    # Make 5 bids (2 more than MAX_NUMBER_OF_LATESTS_BIDDED_SONGS)
+    # 0,1,2 -> 1,2,3 -> 2,3,4
+    for i in range(5):
+        # Create a unique song for each bid
+        current_song = song.copy()
+        current_song["title"] = f"Song {i}"
+        current_song["artist"] = f"Artist {i}"
+        current_song["iframe_hash"] = HexBytes(
+            "0x0000000000000000000000000000000000000000000000000000000000000000"
+        )
+        current_song["iframe_url"] = f"https://open.spotify.com/embed/track/{i}"
 
-    song2 = song.copy()
-    song2["title"] = "Song 2"
-    song2["artist"] = "Artist 2"
-    song2["iframe_hash"] = "0x" + "2" * 64
-    song2["iframe_url"] = "https://open.spotify.com/embed/track/2"
+        # Make bid with increasing amounts
+        auction.bid(100 + (i * 10), current_song, sender=bidder1)
 
-    # First bid with song1
-    auction.bid(100, song1, sender=bidder1)
+    # Get latest bidded songs
+    latest_bidded_songs = auction.get_latests_bidded_songs(round_id)
+    # Should only have MAX_NUMBER_OF_LATESTS_BIDDED_SONGS (3) songs
+    assert len(latest_bidded_songs) == 3
 
-    # Check latests_bids after first bid
-    latest_bids = auction.latests_bids(round_id)
-    assert len(latest_bids) == 1
-    assert latest_bids[0].title == song1["title"]
-    assert latest_bids[0].artist == song1["artist"]
-    assert latest_bids[0].iframe_hash == HexBytes(song1["iframe_hash"])
-    assert latest_bids[0].iframe_url == song1["iframe_url"]
+    # 2,3,4 are the latest bidded songs
+    bidded_songs = [2, 3, 4]
+    for i in range(3):
+        latest_bidded_song = latest_bidded_songs[i]
+        assert latest_bidded_song.title == f"Song {bidded_songs[i]}"
+        assert latest_bidded_song.artist == f"Artist {bidded_songs[i]}"
+        assert latest_bidded_song.iframe_hash == HexBytes(
+            "0x0000000000000000000000000000000000000000000000000000000000000000"
+        )
+        assert (
+            latest_bidded_song.iframe_url
+            == f"https://open.spotify.com/embed/track/{bidded_songs[i]}"
+        )
 
-    # Second bid with song2
-    auction.bid(200, song2, sender=bidder2)
-
-    # Check latests_bids after second bid
-    latest_bids = auction.latests_bids(round_id)
-    assert len(latest_bids) == 2
-    assert latest_bids[0].title == song1["title"]
-    assert latest_bids[0].artist == song1["artist"]
-    assert latest_bids[0].iframe_hash == HexBytes(song1["iframe_hash"])
-    assert latest_bids[0].iframe_url == song1["iframe_url"]
-    assert latest_bids[1].title == song2["title"]
-    assert latest_bids[1].artist == song2["artist"]
-    assert latest_bids[1].iframe_hash == HexBytes(song2["iframe_hash"])
-    assert latest_bids[1].iframe_url == song2["iframe_url"]
-
-    # End round and start new round
-    current_round = auction.get_current_round()
-    chain.pending_timestamp += current_round.end_time
-    chain.mine()
-    auction.end_round(sender=deployer)
-    auction.start_new_round(sender=deployer)
-
-    # Check that latests_bids is empty for new round
-    new_round_id = auction.get_current_round_id()
-    latest_bids = auction.latests_bids(new_round_id)
-    assert len(latest_bids) == 0
-
-    # Verify previous round's latests_bids is preserved
-    previous_latest_bids = auction.latests_bids(round_id)
-    assert len(previous_latest_bids) == 2
-    assert previous_latest_bids[0].title == song1["title"]
-    assert previous_latest_bids[1].title == song2["title"]
+    # 2,3,4 -> 3,4,5
+    auction.bid(100000, song, sender=bidder1)
+    latest_bidded_songs = auction.get_latests_bidded_songs(round_id)
+    assert len(latest_bidded_songs) == 3
+    assert latest_bidded_songs[0].title == f"Song {3}"
+    assert latest_bidded_songs[0].artist == f"Artist {3}"
+    assert latest_bidded_songs[0].iframe_hash == HexBytes(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+    )
+    assert (
+        latest_bidded_songs[0].iframe_url == f"https://open.spotify.com/embed/track/{3}"
+    )

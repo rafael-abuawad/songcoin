@@ -409,6 +409,41 @@ export const auctionAbi = [
   {
     inputs: [
       {
+        name: "_id",
+        type: "uint256",
+      },
+    ],
+    name: "get_latests_bidded_songs",
+    outputs: [
+      {
+        components: [
+          {
+            name: "title",
+            type: "string",
+          },
+          {
+            name: "artist",
+            type: "string",
+          },
+          {
+            name: "iframe_hash",
+            type: "bytes32",
+          },
+          {
+            name: "iframe_url",
+            type: "string",
+          },
+        ],
+        name: "",
+        type: "tuple[3]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
         name: "arg0",
         type: "uint256",
       },
@@ -546,6 +581,62 @@ export const auctionAbi = [
             ],
             name: "song",
             type: "tuple",
+          },
+        ],
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        name: "arg0",
+        type: "uint256",
+      },
+    ],
+    name: "_latests_bidded_songs_index",
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        name: "arg0",
+        type: "uint256",
+      },
+      {
+        name: "arg1",
+        type: "uint256",
+      },
+    ],
+    name: "latests_bidded_songs",
+    outputs: [
+      {
+        components: [
+          {
+            name: "title",
+            type: "string",
+          },
+          {
+            name: "artist",
+            type: "string",
+          },
+          {
+            name: "iframe_hash",
+            type: "bytes32",
+          },
+          {
+            name: "iframe_url",
+            type: "string",
           },
         ],
         name: "",
