@@ -35,6 +35,11 @@ export function AppSidebar() {
             <Button variant="ghost" className="w-full">
               <Link to="/about">About</Link>
             </Button>
+            <Button variant="ghost" className="w-full">
+              <Link to="/withdraw" className="flex items-center gap-2">
+                Withdraw
+              </Link>
+            </Button>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

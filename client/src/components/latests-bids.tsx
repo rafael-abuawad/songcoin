@@ -44,6 +44,7 @@ export function LatestBids() {
           ) : (
             latestBids
               .filter((bid) => bid.title !== "")
+              .reverse()
               .map((bid, i) => (
                 <div
                   key={i}

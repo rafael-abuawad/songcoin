@@ -11,11 +11,18 @@
 // Import Routes
 
 import { Route as rootRoute } from "./routes/__root";
+import { Route as WithdrawImport } from "./routes/withdraw";
 import { Route as BidImport } from "./routes/bid";
 import { Route as AboutImport } from "./routes/about";
 import { Route as IndexImport } from "./routes/index";
 
 // Create/Update Routes
+
+const WithdrawRoute = WithdrawImport.update({
+  id: "/withdraw",
+  path: "/withdraw",
+  getParentRoute: () => rootRoute,
+} as any);
 
 const BidRoute = BidImport.update({
   id: "/bid",
@@ -60,6 +67,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof BidImport;
       parentRoute: typeof rootRoute;
     };
+    "/withdraw": {
+      id: "/withdraw";
+      path: "/withdraw";
+      fullPath: "/withdraw";
+      preLoaderRoute: typeof WithdrawImport;
+      parentRoute: typeof rootRoute;
+    };
   }
 }
 
@@ -69,12 +83,14 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/bid": typeof BidRoute;
+  "/withdraw": typeof WithdrawRoute;
 }
 
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/bid": typeof BidRoute;
+  "/withdraw": typeof WithdrawRoute;
 }
 
 export interface FileRoutesById {
@@ -82,14 +98,15 @@ export interface FileRoutesById {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/bid": typeof BidRoute;
+  "/withdraw": typeof WithdrawRoute;
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/about" | "/bid";
+  fullPaths: "/" | "/about" | "/bid" | "/withdraw";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/about" | "/bid";
-  id: "__root__" | "/" | "/about" | "/bid";
+  to: "/" | "/about" | "/bid" | "/withdraw";
+  id: "__root__" | "/" | "/about" | "/bid" | "/withdraw";
   fileRoutesById: FileRoutesById;
 }
 
@@ -97,12 +114,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AboutRoute: typeof AboutRoute;
   BidRoute: typeof BidRoute;
+  WithdrawRoute: typeof WithdrawRoute;
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   BidRoute: BidRoute,
+  WithdrawRoute: WithdrawRoute,
 };
 
 export const routeTree = rootRoute
@@ -117,7 +136,8 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/about",
-        "/bid"
+        "/bid",
+        "/withdraw"
       ]
     },
     "/": {
@@ -128,6 +148,9 @@ export const routeTree = rootRoute
     },
     "/bid": {
       "filePath": "bid.tsx"
+    },
+    "/withdraw": {
+      "filePath": "withdraw.tsx"
     }
   }
 }

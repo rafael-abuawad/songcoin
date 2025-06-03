@@ -149,6 +149,13 @@ export function BiddingForm() {
     form.setValue("bidAmount", formatEther(songCoinBalance?.value ?? 0n));
   };
 
+  const handleMinClick = () => {
+    form.setValue(
+      "bidAmount",
+      formatEther((currentRound?.highest_bid ?? 0n) + 1000000000000000000n),
+    );
+  };
+
   const onSubmit = async (values: FormValues) => {
     if (!currentRound) return;
 
@@ -339,15 +346,31 @@ export function BiddingForm() {
                         />
                       </FormControl>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Balance:{" "}
-                      <span
-                        className="underline hover:text-primary cursor-pointer"
-                        onClick={handleBalanceClick}
-                      >
-                        {formatEther(songCoinBalance?.value ?? 0n)} SONGCOIN
-                      </span>
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Your Balance:{" "}
+                        <span
+                          className="underline hover:text-primary cursor-pointer"
+                          onClick={handleBalanceClick}
+                        >
+                          {formatEther(songCoinBalance?.value ?? 0n)} SONGCOIN
+                        </span>
+                      </p>
+                      <span className="text-xs text-muted-foreground">|</span>
+                      <p className="text-xs text-muted-foreground">
+                        Min:{" "}
+                        <span
+                          className="underline hover:text-primary cursor-pointer"
+                          onClick={handleMinClick}
+                        >
+                          {formatEther(
+                            (currentRound?.highest_bid ?? 0n) +
+                              1000000000000000000n,
+                          )}{" "}
+                          SONGCOIN
+                        </span>
+                      </p>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
