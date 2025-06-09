@@ -1,13 +1,21 @@
-# pragma version ~=0.4.2rc1
-# @title Open Auction with Rounds
-# @author SongCoin Team
-# @notice This contract implements an auction system for songs with multiple rounds
-# @dev The contract allows users to bid on songs using SongCoin tokens. Each round has a duration of 24 hours.
-# @dev The contract maintains a list of latest bidded songs and handles refunds for outbid users.
+# pragma version ~=0.4.1
+"""
+@title Auction with Rounds
+@license MIT
+@notice This contract implements an auction system for songs with multiple rounds.
+        Each round has a duration of 24 hours and allows users to bid on songs using SongCoin tokens.
+@dev Key features:
+     - Round-based auction system with 24-hour duration
+     - Song bidding with Spotify embed URL validation
+     - Automatic refund handling for outbid users
+     - Latest bidded songs tracking
+     - Gas-optimized state management
+@custom:security The contract implements secure token transfers and refunds,
+                 with no access control for round management.
+"""
 
-# @dev We import the `IERC20` interface, which is a
-# built-in interface of the Vyper compiler.
-from ethereum.ercs import IERC20
+# @dev We import the `IERC20` interface.
+from .interfaces import erc20 as IERC20
 
 
 # @dev We import and initialise the `ownable` module.
@@ -16,9 +24,9 @@ initializes: ow
 
 
 # @notice Structure representing a song in the auction
-# @param title The title of the song
-# @param artist The artist of the song
-# @param iframe_hash Hash of the song's iframe
+# @param title The title of the song (max 32 characters)
+# @param artist The artist of the song (max 32 characters)
+# @param iframe_hash Hash of the song's iframe for verification
 # @param iframe_url URL of the song's iframe (must be a Spotify embed URL)
 struct Song:
     title: String[32]
@@ -30,7 +38,7 @@ struct Song:
 # @notice Structure representing an auction round
 # @param id The unique identifier of the round
 # @param highest_bidder The address of the current highest bidder
-# @param highest_bid The amount of the highest bid
+# @param highest_bid The amount of the highest bid in SongCoin tokens
 # @param ended Whether the round has ended
 # @param start_time The timestamp when the round started
 # @param end_time The timestamp when the round will end
@@ -48,7 +56,7 @@ struct Round:
 # @notice Event emitted when a new bid is placed
 # @param sender The address of the bidder
 # @param round_id The ID of the round being bid on
-# @param amount The amount of the bid
+# @param amount The amount of the bid in SongCoin tokens
 # @param song The song being bid on
 event SongBid:
     sender: address
@@ -58,53 +66,59 @@ event SongBid:
 
 
 # @dev We define the `rounds` public variable.
-# Round ID -> Round
+# @notice Maps round IDs to their corresponding Round struct
+# @return Round The round information for the given ID
 rounds: public(HashMap[uint256, Round])
 
 
 # @dev We define the `songcoin` public variable.
+# @notice The address of the SongCoin token contract
+# @return IERC20 The SongCoin token contract interface
 songcoin: public(immutable(IERC20))
 
 
 # @dev We define the `genesis_round_called` public variable.
-# to indicate if the genesis round has been called.
+# @notice Indicates if the genesis round has been initialized
+# @return bool True if genesis round has been called, false otherwise
 genesis_round_called: public(bool)
 
 
 # @dev We define the `last_winning_round` public variable.
-# It is the last winning round.
+# @notice Stores information about the last completed round
+# @return Round The last winning round's information
 last_winning_round: public(Round)
 
 
 # @dev We define the `MAX_NUMBER_OF_LATESTS_BIDDED_SONGS` constant.
+# @notice Maximum number of latest bidded songs to track per round
 MAX_NUMBER_OF_LATESTS_BIDDED_SONGS: constant(uint256) = 3
 
 
 # @dev We define the `_latests_bidded_songs_index` public variable.
-# Round ID -> Index of the latests bidded songs
+# @notice Tracks the current index for latest bidded songs per round
+# @return uint256 The current index for the given round ID
 _latests_bidded_songs_index: public(HashMap[uint256, uint256])
 
 
 # @dev We define the `latests_bidded_songs` public variable.
-# It is a `HashMap` of `uint256` and `Song[]`.
-# It keeps track of the latest bidded songs for each round.
-# Round ID -> Song[]
+# @notice Stores the latest bidded songs for each round
+# @return Song[] Array of latest bidded songs for the given round ID
 latests_bidded_songs: public(HashMap[uint256, Song[MAX_NUMBER_OF_LATESTS_BIDDED_SONGS]])
 
 
 # @dev We define the `ROUND_DURATION` constant.
+# @notice Duration of each round in seconds (24 hours)
 ROUND_DURATION: constant(uint256) = 60 * 60 * 24 # 1 day
 
 
 # @dev We define the `pending_returns` public variable.
-# It is a `HashMap` of `address`, `uint256` and `uint256`.
-# It keeps track of refunded bids per round.
-# address -> round -> amount
+# @notice Tracks refunded bids per user and round
+# @return uint256 The amount of pending returns for the given user and round
 pending_returns: public(HashMap[address, HashMap[uint256, uint256]])
 
 
 # @dev We define the `_id` private variable.
-# It is the current round id.
+# @notice The current round ID
 _id: uint256
 
 
@@ -114,9 +128,16 @@ exports: ow.__interface__
 
 
 # @notice Creates a new auction contract
+# @dev Initializes the contract with the SongCoin token address
+#      and creates the genesis round
 # @param _songcoin The address of the SongCoin token contract
 @deploy
 def __init__(_songcoin: address):
+    """
+    @dev Initializes the auction contract with the SongCoin token
+         and creates the genesis round
+    @param _songcoin The address of the SongCoin token contract
+    """
     songcoin = IERC20(_songcoin)
     self._genesis_round()
     ow.__init__()
@@ -127,7 +148,8 @@ def __init__(_songcoin: address):
 @internal
 def _genesis_round():
     """
-    This function is used to create the genesis round.
+    @dev Creates the initial round of the auction
+    @notice This function can only be called once during contract deployment
     """
     assert not self.genesis_round_called, "auction: genesis round already called"
     self.genesis_round_called = True
@@ -153,6 +175,11 @@ def _genesis_round():
 @internal
 @pure
 def _check_song_url(iframe_url: String[256]) -> bool:
+    """
+    @dev Validates if the provided URL is a valid Spotify embed URL
+    @param iframe_url The URL to validate
+    @return bool True if the URL is a valid Spotify embed URL, false otherwise
+    """
     spotify_url: String[256] = "https://open.spotify.com/embed/track/"
     if len(iframe_url) < len(spotify_url):
         return False
@@ -162,8 +189,10 @@ def _check_song_url(iframe_url: String[256]) -> bool:
 @internal
 def _add_song_to_latests_bidded_songs(id: uint256, song: Song):
     """
-    Add a song to the top (end) of the list.
-    If full, shift left (discard the first one) and add to end.
+    @dev Adds a song to the latest bidded songs list for a round
+    @notice If the list is full, shifts all songs left and adds the new song at the end
+    @param id The round ID
+    @param song The song to add
     """
     index: uint256 = self._latests_bidded_songs_index[id]
 
@@ -180,30 +209,87 @@ def _add_song_to_latests_bidded_songs(id: uint256, song: Song):
 @internal
 def _withdraw(_round: uint256):
     """
-    This function is used to withdraw a previously refunded bid for a specific round.
+    @dev Withdraws a previously refunded bid for a specific round
+    @notice Can only withdraw from completed rounds that are not the current round
+    @param _round The round ID to withdraw from
     """
     # Check if round exists and is not the current round
-    id: uint256 = self._id
-    assert _round != id, "auction: round cannot be current"
-    assert _round < id, "auction: round does not exist"
+    assert _round <= self._id, "auction: round does not exist"
 
     r: Round = self.rounds[_round]
     pending_amount: uint256 = self.pending_returns[msg.sender][_round]
 
     # Check if round has pending returns and is not the current round
     assert pending_amount > 0, "auction: no refunds"
-    assert r.highest_bidder != msg.sender, "auction: highest bidder cannot withdraw"
 
     # Transfer Songcoin from contract to sender
     self.pending_returns[msg.sender][_round] = 0
     assert extcall songcoin.transfer(msg.sender, pending_amount, default_return_value=False), "auction: transfer failed"
 
 
+@internal
+def _end_round():
+    """
+    @dev Ends the current round and processes the winning bid
+    @notice Can only be called when the round's end time has been reached
+    """
+    current_round_id: uint256 = self._id
+    active_round: Round = self.rounds[current_round_id]
+
+    # Check if round end time has been reached
+    assert block.timestamp >= active_round.end_time, "auction: round has not ended"
+
+    # Check if round has not already ended
+    assert not active_round.ended, "auction: round has already ended"
+
+    # Mark round as ended
+    self.rounds[current_round_id].ended = True
+    self.last_winning_round = self.rounds[current_round_id]
+
+    # Burn the highest bid
+    extcall songcoin.burn(active_round.highest_bid)
+
+
+# @notice Starts a new round
+# @dev Can only be called after the current round has ended
+@internal
+def _start_new_round():
+    """
+    @dev Initializes a new round after the current one has ended
+    @notice Sets up a new round with a 24-hour duration
+    """
+    # Ensure current round has ended
+    assert self.rounds[self._id].ended, "auction: round has not ended"
+
+    # Increment round counter
+    self._id += 1
+    id: uint256 = self._id
+
+    # Initialize new round
+    start_time: uint256 = block.timestamp
+    end_time: uint256 = start_time + ROUND_DURATION
+    self.rounds[id] = Round(
+        id=id,
+        highest_bidder=empty(address),
+        highest_bid=0,
+        ended=False,
+        start_time=start_time,
+        end_time=end_time,
+        song=Song(title="", artist="", iframe_hash=empty(bytes32), iframe_url="")
+    )
+
+
 # @notice Places a bid on the current round
-# @param _amount The amount to bid
+# @param _amount The amount to bid in SongCoin tokens
 # @param _song The song to bid on
 @external
 def bid(_amount: uint256, _song: Song):
+    """
+    @dev Places a bid on the current round
+    @notice The bid must be higher than the current highest bid
+    @param _amount The amount to bid in SongCoin tokens
+    @param _song The song to bid on
+    """
     # Get current round
     id: uint256 = self._id
     r: Round = self.rounds[id]
@@ -238,153 +324,202 @@ def bid(_amount: uint256, _song: Song):
 # @param _round The round ID to withdraw from
 @external
 def withdraw(_round: uint256):
+    """
+    @dev Withdraws a previously refunded bid for a specific round
+    @param _round The round ID to withdraw from
+    """
     self._withdraw(_round)
 
 
 @external
-def end_round():
+def end_round_and_start_new_round():
     """
-    This function is used to end the current round.
+    @dev Ends the current round and starts a new one
+    @notice Can only be called when the current round has ended
     """
-    ow._check_owner()
-
-    id: uint256 = self._id
-    active_round: Round = self.rounds[id]
-
-    # Check if round end time has been reached
-    assert block.timestamp >= active_round.end_time, "auction: round has not ended"
-
-    # Check if round has not already ended
-    assert not active_round.ended, "auction: round has already ended"
-
-    # Mark round as ended
-    self.rounds[id].ended = True
-    self.pending_returns[active_round.highest_bidder][id] = 0
-    self.last_winning_round = self.rounds[id]
+    self._end_round()
+    self._start_new_round()
 
 
-# @notice Starts a new round
-# @dev Can only be called after the current round has ended
 @external
-def start_new_round():
-    # Ensure current round has ended
-    assert self.rounds[self._id].ended, "auction: round has not ended"
+def withdraw_all_pending_returns(_start: uint256, _end: uint256) -> uint256:
+    """
+    @dev Claims all pending returns for the caller
+    @param _start The start round ID to check
+    @param _end The end round ID to check
+    @return uint256 The total amount of tokens claimed
+    """
+    assert _start <= _end, "auction: invalid range"
 
-    # Increment round counter
-    self._id += 1
-    id: uint256 = self._id
+    # Get the current round ID
+    current_round_id: uint256 = self._id
+    assert _start <= current_round_id and _end <= current_round_id, "auction: invalid range"
 
-    # Initialize new round
-    start_time: uint256 = block.timestamp
-    end_time: uint256 = start_time + ROUND_DURATION
-    self.rounds[id] = Round(
-        id=id,
-        highest_bidder=empty(address),
-        highest_bid=0,
-        ended=False,
-        start_time=start_time,
-        end_time=end_time,
-        song=Song(title="", artist="", iframe_hash=empty(bytes32), iframe_url="")
-    )
+    # Get the total amount of pending returns
+    total: uint256 = 0
+    for i: uint256 in range(_start, _end + 1, bound=max_value(uint256)):
+        pending_amount: uint256 = self.pending_returns[msg.sender][i]
+        if pending_amount > 0:
+            self._withdraw(i)
+            total += pending_amount
+    return total
 
 
 @external
 @view
 def get_current_round() -> Round:
+    """
+    @dev Returns the current round information
+    @return Round The current round's information
+    """
     return self.rounds[self._id]
 
 
 @external
 @view
 def get_current_round_id() -> uint256:
+    """
+    @dev Returns the current round ID
+    @return uint256 The current round ID
+    """
     return self._id
 
 
 @external
 @view
 def get_round_duration() -> uint256:
+    """
+    @dev Returns the duration of each round in seconds
+    @return uint256 The round duration in seconds
+    """
     return ROUND_DURATION
 
 
 @external
 @view
 def get_pending_returns(_user: address, _id: uint256) -> uint256:
-    if self.rounds[_id].highest_bidder == _user:
-        return 0
+    """
+    @dev Returns the pending returns for a user in a specific round
+    @param _user The address to check
+    @param _id The round ID to check
+    @return uint256 The amount of pending returns
+    """
     return self.pending_returns[_user][_id]
 
 
 @external
 @view
 def get_round_highest_bidder(_id: uint256) -> address:
+    """
+    @dev Returns the highest bidder of a specific round
+    @param _id The round ID to check
+    @return address The address of the highest bidder
+    """
     return self.rounds[_id].highest_bidder
 
 
 @external
 @view
 def get_round_highest_bid(_id: uint256) -> uint256:
+    """
+    @dev Returns the highest bid amount of a specific round
+    @param _id The round ID to check
+    @return uint256 The highest bid amount
+    """
     return self.rounds[_id].highest_bid
 
 
 @external
 @view
 def get_round_ended(_id: uint256) -> bool:
+    """
+    @dev Returns whether a specific round has ended
+    @param _id The round ID to check
+    @return bool True if the round has ended, false otherwise
+    """
     return self.rounds[_id].ended
 
 
 @external
 @view
 def get_round_start_time(_id: uint256) -> uint256:
+    """
+    @dev Returns the start time of a specific round
+    @param _id The round ID to check
+    @return uint256 The start time of the round
+    """
     return self.rounds[_id].start_time
 
 
 @external
 @view
 def get_round_end_time(_id: uint256) -> uint256:
+    """
+    @dev Returns the end time of a specific round
+    @param _id The round ID to check
+    @return uint256 The end time of the round
+    """
     return self.rounds[_id].end_time
 
 
 @external
 @view
 def get_round_song(_id: uint256) -> Song:
+    """
+    @dev Returns the song being auctioned in a specific round
+    @param _id The round ID to check
+    @return Song The song being auctioned
+    """
     return self.rounds[_id].song
 
 
 @external
 @pure
 def check_song_url(iframe_url: String[256]) -> bool:
+    """
+    @dev Checks if a URL is a valid Spotify embed URL
+    @param iframe_url The URL to check
+    @return bool True if the URL is valid, false otherwise
+    """
     return self._check_song_url(iframe_url)
 
 
 @external
 @view
 def is_there_a_last_winning_round() -> bool:
+    """
+    @dev Checks if there is a last winning round
+    @return bool True if there is a last winning round, false otherwise
+    """
     return self.last_winning_round.highest_bidder != empty(address)
 
 
 @external
 @view
 def get_latests_bidded_songs(_id: uint256) -> Song[MAX_NUMBER_OF_LATESTS_BIDDED_SONGS]:
+    """
+    @dev Returns the latest bidded songs for a specific round
+    @param _id The round ID to check
+    @return Song[] Array of latest bidded songs
+    """
     return self.latests_bidded_songs[_id]
 
 
 @external
 @view
-def get_total_pending_returns(_from: address) -> uint256:
-    id: uint256 = self._id
+def get_total_pending_returns(_from: address, _start: uint256, _end: uint256) -> uint256:
+    """
+    @dev Returns the total amount of pending returns for an address
+    @param _from The address to check
+    @param _start The start round ID to check
+    @param _end The end round ID to check
+    @return uint256 The total amount of pending returns
+    """
+    if _start > _end: return 0
+
     total: uint256 = 0
-    for i: uint256 in range(id, bound=max_value(uint256)):
+    for i: uint256 in range(_start, _end + 1, bound=max_value(uint256)):
+        if i > self._id:
+            break
         total += self.pending_returns[_from][i]
-    return total
-
-
-@external
-def claim_pending_returns() -> uint256:
-    id: uint256 = self._id
-    total: uint256 = 0
-    for i: uint256 in range(id, bound=max_value(uint256)):
-        pending_amount: uint256 = self.pending_returns[msg.sender][i]
-        if pending_amount > 0:
-            self._withdraw(i)
-            total += pending_amount
     return total

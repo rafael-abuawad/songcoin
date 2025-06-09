@@ -1,11 +1,11 @@
 import { WagmiProvider, createConfig } from "wagmi";
-import { anvil } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 
 const config = createConfig(
   getDefaultConfig({
-    chains: [anvil],
+    chains: [sepolia],
     //transports: {
     //  [base.id]: http(import.meta.env.VITE_ALCHEMY_RPC_URL),
     //},

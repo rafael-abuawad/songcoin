@@ -11,7 +11,7 @@ const initialState = {
   isFetching: false,
   isError: false,
   isThereALastWinningRound: false,
-  refetch: () => {},
+  refetch: async () => {},
 };
 
 export const CurrentRoundContext = createContext<{
@@ -21,7 +21,7 @@ export const CurrentRoundContext = createContext<{
   isFetching: boolean;
   isError: boolean;
   isThereALastWinningRound: boolean;
-  refetch: () => void;
+  refetch: () => Promise<void>;
 }>(initialState);
 
 export const CurrentRoundProvider = ({
@@ -39,6 +39,9 @@ export const CurrentRoundProvider = ({
     abi: auctionAbi,
     address: auctionAddress,
     functionName: "get_current_round",
+    query: {
+      staleTime: 30000, // 30 seconds
+    },
   });
 
   const { data: lastWinningRound, refetch: lastWinningRoundRefetch } =
@@ -46,6 +49,9 @@ export const CurrentRoundProvider = ({
       abi: auctionAbi,
       address: auctionAddress,
       functionName: "last_winning_round",
+      query: {
+        staleTime: 30000, // 30 seconds
+      },
     });
 
   const {
@@ -55,12 +61,15 @@ export const CurrentRoundProvider = ({
     abi: auctionAbi,
     address: auctionAddress,
     functionName: "is_there_a_last_winning_round",
+    query: {
+      staleTime: 30000, // 30 seconds
+    },
   });
 
-  const refetch = () => {
-    currentRoundRefetch();
-    isThereALastWinningRoundRefetch();
-    lastWinningRoundRefetch();
+  const refetch = async () => {
+    await currentRoundRefetch();
+    await isThereALastWinningRoundRefetch();
+    await lastWinningRoundRefetch();
   };
 
   return (

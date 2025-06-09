@@ -28,7 +28,7 @@ def main():
         songcoin = deploy_songcoin(network_name, deployer)
     else:
         deployer = accounts.load("songcoin")
-        songcoin = "0x0000000000000000000000000000000000000000"
+        songcoin = deploy_songcoin(network_name, deployer)
 
     click.echo("--------SONGCOIN AUCTION DEPLOYMENT--------")
     click.echo("Deploying Auction...")

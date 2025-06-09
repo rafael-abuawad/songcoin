@@ -37,18 +37,21 @@ function WithdrawPage() {
 
   const handleClaimPendingReturns = async () => {
     if (!address) return;
-    toast.promise(Promise.all([
-      writeContractAsync({
-        address: auctionAddress,
-        abi: auctionAbi,
-        functionName: "claim_pending_returns",
-      }),
-      refetch()
-    ]), {
-      loading: "Claiming pending returns...",
-      success: "Successfully claimed pending returns!",
-      error: "Failed to claim pending returns. Please try again.",
-    });
+    toast.promise(
+      Promise.all([
+        writeContractAsync({
+          address: auctionAddress,
+          abi: auctionAbi,
+          functionName: "claim_pending_returns",
+        }),
+        refetch(),
+      ]),
+      {
+        loading: "Claiming pending returns...",
+        success: "Successfully claimed pending returns!",
+        error: "Failed to claim pending returns. Please try again.",
+      },
+    );
   };
 
   if (!isConnected) {

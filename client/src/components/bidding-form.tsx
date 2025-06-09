@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,9 +8,9 @@ import { DiscIcon, Music, Wallet } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   useAccount,
-  useBalance,
   useReadContracts,
   useWriteContract,
+  useWalletClient,
 } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { auctionAbi } from "@/lib/abi";
@@ -32,6 +32,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { waitForTransactionReceipt } from "viem/actions";
+import { CurrentRoundContext } from "@/context/current-round.context";
 
 interface FormContext {
   currentRound:
@@ -66,7 +68,6 @@ const formSchema = z.object({
     .superRefine((val, ctx) => {
       const currentRound = (ctx.path[0] as unknown as FormContext)
         ?.currentRound;
-      console.log("ctx", ctx);
       console.log("currentRound", currentRound);
       if (!currentRound) return;
       if (Number(val) <= Number(formatEther(currentRound.highest_bid))) {
@@ -82,7 +83,8 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function BiddingForm() {
   const { isConnected, address } = useAccount();
-  const result = useReadContracts({
+  const { refetch: refetchCurrentRound } = useContext(CurrentRoundContext);
+  const { data: result, refetch: refetchResult } = useReadContracts({
     contracts: [
       {
         abi: auctionAbi,
@@ -95,24 +97,32 @@ export function BiddingForm() {
         functionName: "allowance",
         args: [address ?? ("" as Address), auctionAddress],
       },
+      {
+        abi: erc20Abi,
+        address: songcoinAddress,
+        functionName: "balanceOf",
+        args: [address ?? ("" as Address)],
+      },
+      {
+        abi: erc20Abi,
+        address: songcoinAddress,
+        functionName: "decimals",
+      },
     ],
     query: {
       enabled: !!address && isConnected,
     },
   });
 
-  const currentRound = result.data?.[0]?.result;
-  const allowance = result.data?.[1]?.result;
+  const currentRound = result?.[0]?.result;
+  const allowance = result?.[1]?.result;
+  const balance = result?.[2]?.result;
+  const decimals = result?.[3]?.result;
 
-  const { data: songCoinBalance } = useBalance({
-    address: address,
-    token: songcoinAddress,
-    query: {
-      enabled: isConnected,
-    },
-  });
   const { writeContractAsync } = useWriteContract();
+  const { data: walletClient } = useWalletClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -146,7 +156,7 @@ export function BiddingForm() {
   };
 
   const handleBalanceClick = () => {
-    form.setValue("bidAmount", formatEther(songCoinBalance?.value ?? 0n));
+    form.setValue("bidAmount", formatEther(balance ?? 0n));
   };
 
   const handleMinClick = () => {
@@ -156,51 +166,60 @@ export function BiddingForm() {
     );
   };
 
-  const onSubmit = async (values: FormValues) => {
-    if (!currentRound) return;
+  const handleApprove = async (bidAmount: bigint) => {
+    if (allowance && allowance >= bidAmount) {
+      toast.error("You already have the required allowance.");
+      return;
+    }
 
+    if (!walletClient) {
+      toast.error("Wallet client not available");
+      return;
+    }
+
+    setIsApproving(true);
+    try {
+      const hash = await writeContractAsync({
+        abi: erc20Abi,
+        address: songcoinAddress,
+        functionName: "approve",
+        args: [auctionAddress, bidAmount],
+      });
+
+      toast.loading("Waiting for transaction confirmation...");
+      toast.dismiss();
+      await waitForTransactionReceipt(walletClient, { hash });
+      await refetchResult();
+      toast.success("Allowance approved successfully!");
+    } catch (error) {
+      toast.error("Failed to approve allowance. Please try again.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleBid = async (values: FormValues, bidAmount: bigint) => {
     const spotifyUrl = validateSpotifyEmbed(values.songUrl);
     if (!spotifyUrl) {
       toast.error(
         "Invalid Spotify embed URL. Please use the embed code from Spotify.",
       );
+      return false;
+    }
+
+    if (!walletClient) {
+      toast.error("Wallet client not available");
       return;
     }
 
     setIsSubmitting(true);
-    if (
-      allowance &&
-      Number(formatUnits(allowance ?? 0n, songCoinBalance?.decimals ?? 18)) <
-        Number(values.bidAmount)
-    ) {
-      toast.promise(
-        writeContractAsync({
-          abi: erc20Abi,
-          address: songcoinAddress,
-          functionName: "approve",
-          args: [
-            auctionAddress,
-            parseUnits(values.bidAmount, songCoinBalance?.decimals ?? 18),
-          ],
-        }),
-        {
-          loading: "Approving allowance...",
-          success: "Allowance approved successfully!",
-          error: (error) => {
-            console.error("Error approving allowance:", error);
-            return "Failed to approve allowance. Please try again. ";
-          },
-        },
-      );
-    }
-
-    toast.promise(
-      writeContractAsync({
+    try {
+      const hash = await writeContractAsync({
         abi: auctionAbi,
         address: auctionAddress,
         functionName: "bid",
         args: [
-          parseUnits(values.bidAmount, songCoinBalance?.decimals ?? 18),
+          bidAmount,
           {
             title: values.songName,
             artist: values.artistName,
@@ -208,19 +227,39 @@ export function BiddingForm() {
             iframe_url: spotifyUrl,
           },
         ],
-      }),
-      {
-        loading: "Placing bid...",
-        success: () => {
-          form.reset();
-          return "Bid placed successfully!";
-        },
-        error: (error) => {
-          console.error("Error placing bid:", error);
-          return "Failed to place bid. Please try again. ";
-        },
-      },
-    );
+      });
+
+      toast.loading("Placing bid...");
+      toast.dismiss();
+      await waitForTransactionReceipt(walletClient, { hash });
+      await refetchResult();
+      await refetchCurrentRound();
+      form.reset();
+      toast.success("Bid placed successfully!");
+    } catch (error) {
+      toast.error("Failed to place bid. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onSubmit = async (values: FormValues) => {
+    if (!currentRound) return;
+
+    setIsSubmitting(true);
+    const bidAmount = parseUnits(values.bidAmount, decimals ?? 18);
+
+    // Check if approval is needed
+    if (
+      allowance &&
+      Number(formatUnits(allowance, decimals ?? 18)) < Number(values.bidAmount)
+    ) {
+      toast.error("You need to approve the SONGCOIN allowance first.");
+      return;
+    }
+
+    // Place the bid
+    await handleBid(values, bidAmount);
     setIsSubmitting(false);
   };
 
@@ -353,7 +392,7 @@ export function BiddingForm() {
                           className="underline hover:text-primary cursor-pointer"
                           onClick={handleBalanceClick}
                         >
-                          {formatEther(songCoinBalance?.value ?? 0n)} SONGCOIN
+                          {formatEther(balance ?? 0n)} SONGCOIN
                         </span>
                       </p>
                       <span className="text-xs text-muted-foreground">|</span>
@@ -376,14 +415,31 @@ export function BiddingForm() {
                 )}
               />
 
-              <Button
-                className="mt-2 w-full cursor-pointer"
-                variant="secondary"
-                disabled={isSubmitting}
-                type="submit"
-              >
-                {isSubmitting ? "Confirming on blockchain..." : "Place Bid"}
-              </Button>
+              {(allowance ?? 0n) <
+              parseUnits(form.watch("bidAmount"), decimals ?? 18) ? (
+                <Button
+                  className="mt-2 w-full cursor-pointer"
+                  type="button"
+                  variant="secondary"
+                  onClick={() =>
+                    handleApprove(
+                      parseUnits(form.getValues("bidAmount"), decimals ?? 18),
+                    )
+                  }
+                  disabled={isApproving}
+                >
+                  {isApproving ? "Approving..." : "Approve SONGCOIN"}
+                </Button>
+              ) : (
+                <Button
+                  className="mt-2 w-full cursor-pointer"
+                  variant="secondary"
+                  disabled={isSubmitting}
+                  type="submit"
+                >
+                  {isSubmitting ? "Confirming on blockchain..." : "Place Bid"}
+                </Button>
+              )}
             </form>
           </Form>
         )}
