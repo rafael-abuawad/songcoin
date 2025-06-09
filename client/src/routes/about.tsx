@@ -81,23 +81,6 @@ function About() {
             </div>
           </div>
         </div>
-
-        <div className="py-8 first:pt-0 last:pb-0">
-          <div className="flex gap-x-5">
-            <InfoIcon className="shrink-0 mt-1 size-6 text-muted-foreground" />
-
-            <div className="grow">
-              <h3 className="md:text-lg font-semibold text-foreground">
-                Why did I make this project?
-              </h3>
-              <p className="mt-1 text-muted-foreground">
-                Well, I wanted to build anything, I wanted to learn new stuff
-                and I wanted to put my skills to the test. If this blows up,
-                great! If it doesn't, still is a win for me.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -444,6 +444,35 @@ export const auctionAbi = [
   {
     inputs: [
       {
+        name: "_from",
+        type: "address",
+      },
+    ],
+    name: "get_total_pending_returns",
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "claim_pending_returns",
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
         name: "arg0",
         type: "uint256",
       },

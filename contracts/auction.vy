@@ -1,5 +1,9 @@
 # pragma version ~=0.4.2rc1
 # @title Open Auction with Rounds
+# @author SongCoin Team
+# @notice This contract implements an auction system for songs with multiple rounds
+# @dev The contract allows users to bid on songs using SongCoin tokens. Each round has a duration of 24 hours.
+# @dev The contract maintains a list of latest bidded songs and handles refunds for outbid users.
 
 # @dev We import the `IERC20` interface, which is a
 # built-in interface of the Vyper compiler.
@@ -11,7 +15,11 @@ from snekmate.auth import ownable as ow
 initializes: ow
 
 
-# @dev We define the `Song` struct
+# @notice Structure representing a song in the auction
+# @param title The title of the song
+# @param artist The artist of the song
+# @param iframe_hash Hash of the song's iframe
+# @param iframe_url URL of the song's iframe (must be a Spotify embed URL)
 struct Song:
     title: String[32]
     artist: String[32]
@@ -19,7 +27,14 @@ struct Song:
     iframe_url: String[256]
 
 
-# @dev We define the ´Round´ struct.
+# @notice Structure representing an auction round
+# @param id The unique identifier of the round
+# @param highest_bidder The address of the current highest bidder
+# @param highest_bid The amount of the highest bid
+# @param ended Whether the round has ended
+# @param start_time The timestamp when the round started
+# @param end_time The timestamp when the round will end
+# @param song The song being auctioned in this round
 struct Round:
     id: uint256
     highest_bidder: address
@@ -30,8 +45,11 @@ struct Round:
     song: Song
 
 
-# @dev We define the `SongBid` event.
-# Event is emitted when a song is bid on.
+# @notice Event emitted when a new bid is placed
+# @param sender The address of the bidder
+# @param round_id The ID of the round being bid on
+# @param amount The amount of the bid
+# @param song The song being bid on
 event SongBid:
     sender: address
     round_id: indexed(uint256)
@@ -95,7 +113,8 @@ _id: uint256
 exports: ow.__interface__
 
 
-# @dev We create an auction with `_songcoin` address.
+# @notice Creates a new auction contract
+# @param _songcoin The address of the SongCoin token contract
 @deploy
 def __init__(_songcoin: address):
     songcoin = IERC20(_songcoin)
@@ -103,6 +122,8 @@ def __init__(_songcoin: address):
     ow.__init__()
 
 
+# @notice Creates the initial round of the auction
+# @dev This function can only be called once during contract deployment
 @internal
 def _genesis_round():
     """
@@ -156,8 +177,31 @@ def _add_song_to_latests_bidded_songs(id: uint256, song: Song):
         self.latests_bidded_songs[id][MAX_NUMBER_OF_LATESTS_BIDDED_SONGS - 1] = song
 
 
-# @dev We define the `bid` external function.
-# It is used to bid on the current round with the value sent.
+@internal
+def _withdraw(_round: uint256):
+    """
+    This function is used to withdraw a previously refunded bid for a specific round.
+    """
+    # Check if round exists and is not the current round
+    id: uint256 = self._id
+    assert _round != id, "auction: round cannot be current"
+    assert _round < id, "auction: round does not exist"
+
+    r: Round = self.rounds[_round]
+    pending_amount: uint256 = self.pending_returns[msg.sender][_round]
+
+    # Check if round has pending returns and is not the current round
+    assert pending_amount > 0, "auction: no refunds"
+    assert r.highest_bidder != msg.sender, "auction: highest bidder cannot withdraw"
+
+    # Transfer Songcoin from contract to sender
+    self.pending_returns[msg.sender][_round] = 0
+    assert extcall songcoin.transfer(msg.sender, pending_amount, default_return_value=False), "auction: transfer failed"
+
+
+# @notice Places a bid on the current round
+# @param _amount The amount to bid
+# @param _song The song to bid on
 @external
 def bid(_amount: uint256, _song: Song):
     # Get current round
@@ -190,25 +234,11 @@ def bid(_amount: uint256, _song: Song):
     self._add_song_to_latests_bidded_songs(id, _song)
 
 
-# @dev We define the `withdraw` external function.
-# It is used to withdraw a previously refunded bid for a specific round.
+# @notice Withdraws a previously refunded bid for a specific round
+# @param _round The round ID to withdraw from
 @external
 def withdraw(_round: uint256):
-    # Check if round exists and is not the current round
-    id: uint256 = self._id
-    assert _round != id, "auction: round cannot be current"
-    assert _round < id, "auction: round does not exist"
-
-    r: Round = self.rounds[_round]
-    pending_amount: uint256 = self.pending_returns[msg.sender][_round]
-
-    # Check if round has pending returns and is not the current round
-    assert pending_amount > 0, "auction: no refunds"
-    assert r.highest_bidder != msg.sender, "auction: highest bidder cannot withdraw"
-
-    # Transfer Songcoin from contract to sender
-    self.pending_returns[msg.sender][_round] = 0
-    assert extcall songcoin.transfer(msg.sender, pending_amount, default_return_value=False), "auction: transfer failed"
+    self._withdraw(_round)
 
 
 @external
@@ -233,7 +263,8 @@ def end_round():
     self.last_winning_round = self.rounds[id]
 
 
-# Start a new round
+# @notice Starts a new round
+# @dev Can only be called after the current round has ended
 @external
 def start_new_round():
     # Ensure current round has ended
@@ -335,3 +366,25 @@ def is_there_a_last_winning_round() -> bool:
 @view
 def get_latests_bidded_songs(_id: uint256) -> Song[MAX_NUMBER_OF_LATESTS_BIDDED_SONGS]:
     return self.latests_bidded_songs[_id]
+
+
+@external
+@view
+def get_total_pending_returns(_from: address) -> uint256:
+    id: uint256 = self._id
+    total: uint256 = 0
+    for i: uint256 in range(id, bound=max_value(uint256)):
+        total += self.pending_returns[_from][i]
+    return total
+
+
+@external
+def claim_pending_returns() -> uint256:
+    id: uint256 = self._id
+    total: uint256 = 0
+    for i: uint256 in range(id, bound=max_value(uint256)):
+        pending_amount: uint256 = self.pending_returns[msg.sender][i]
+        if pending_amount > 0:
+            self._withdraw(i)
+            total += pending_amount
+    return total

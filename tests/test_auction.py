@@ -633,3 +633,124 @@ def test_get_latests_bids(chain, auction, mock_erc20, deployer, bidder1, song):
     assert (
         latest_bidded_songs[0].iframe_url == f"https://open.spotify.com/embed/track/{3}"
     )
+
+
+def test_get_total_pending_returns(
+    chain, auction, mock_erc20, deployer, bidder1, bidder2, song
+):
+    """Test getting total pending returns across multiple rounds"""
+    # Mint tokens to bidders
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+
+    # Approve tokens for bidders
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+
+    # Round 1: bidder1 gets outbid
+    bidder1_bid1 = 100
+    auction.bid(bidder1_bid1, song, sender=bidder1)
+    bidder2_bid1 = 200
+    auction.bid(bidder2_bid1, song, sender=bidder2)
+
+    # End round 1
+    current_round = auction.get_current_round()
+    chain.pending_timestamp += current_round.end_time
+    chain.mine()
+    auction.end_round(sender=deployer)
+
+    # Start round 2
+    auction.start_new_round(sender=deployer)
+
+    # Round 2: bidder1 gets outbid again
+    bidder1_bid2 = 300
+    auction.bid(bidder1_bid2, song, sender=bidder1)
+    bidder2_bid2 = 400
+    auction.bid(bidder2_bid2, song, sender=bidder2)
+
+    # End round 2
+    current_round = auction.get_current_round()
+    chain.pending_timestamp += current_round.end_time
+    chain.mine()
+    auction.end_round(sender=deployer)
+
+    # Start round 3
+    auction.start_new_round(sender=deployer)
+
+    # Check total pending returns for bidder1
+    total_pending = auction.get_total_pending_returns(bidder1)
+    assert total_pending == bidder1_bid1 + bidder1_bid2  # Should be sum of both bids
+
+    # Check total pending returns for bidder2 (should be 0 as they won both rounds)
+    total_pending = auction.get_total_pending_returns(bidder2)
+    assert total_pending == 0
+
+    # Check total pending returns for deployer (should be 0 as they didn't bid)
+    total_pending = auction.get_total_pending_returns(deployer)
+    assert total_pending == 0
+
+
+def test_claim_pending_returns(
+    chain, auction, mock_erc20, deployer, bidder1, bidder2, song
+):
+    """Test claiming all pending returns across multiple rounds"""
+    # Mint tokens to bidders
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+
+    # Approve tokens for bidders
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+
+    # Round 1: bidder1 gets outbid
+    bidder1_bid1 = 100
+    auction.bid(bidder1_bid1, song, sender=bidder1)
+    bidder2_bid1 = 200
+    auction.bid(bidder2_bid1, song, sender=bidder2)
+
+    # End round 1
+    current_round = auction.get_current_round()
+    chain.pending_timestamp += current_round.end_time
+    chain.mine()
+    auction.end_round(sender=deployer)
+
+    # Start round 2
+    auction.start_new_round(sender=deployer)
+
+    # Round 2: bidder1 gets outbid again
+    bidder1_bid2 = 300
+    auction.bid(bidder1_bid2, song, sender=bidder1)
+    bidder2_bid2 = 400
+    auction.bid(bidder2_bid2, song, sender=bidder2)
+
+    # End round 2
+    current_round = auction.get_current_round()
+    chain.pending_timestamp += current_round.end_time
+    chain.mine()
+    auction.end_round(sender=deployer)
+
+    # Start round 3
+    auction.start_new_round(sender=deployer)
+
+    # Get initial balance of bidder1
+    initial_balance = mock_erc20.balanceOf(bidder1)
+
+    # Claim all pending returns
+    total_pending_returns = auction.get_total_pending_returns(bidder1)
+    initial_balance = mock_erc20.balanceOf(bidder1)
+    auction.claim_pending_returns(sender=bidder1)
+
+    # Verify total claimed amount
+    assert total_pending_returns == bidder1_bid1 + bidder1_bid2
+
+    # Verify final balance
+    final_balance = mock_erc20.balanceOf(bidder1)
+    assert final_balance - initial_balance == total_pending_returns
+
+    # Verify no more pending returns
+    assert auction.get_total_pending_returns(bidder1) == 0
+
+    # Try to claim again (should return 0)
+    auction.claim_pending_returns(sender=bidder1)
+    current_balance = mock_erc20.balanceOf(bidder1)
+    assert current_balance == final_balance
