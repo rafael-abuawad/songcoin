@@ -1,4 +1,5 @@
 # pragma version ~=0.4.1
+# @author @rabuawad_ (https://x.com/rabuawad_)
 """
 @title Auction with Rounds
 @license MIT
@@ -111,12 +112,6 @@ latests_bidded_songs: public(HashMap[uint256, Song[MAX_NUMBER_OF_LATESTS_BIDDED_
 ROUND_DURATION: constant(uint256) = 60 * 60 * 24 # 1 day
 
 
-# @dev We define the `pending_returns` public variable.
-# @notice Tracks refunded bids per user and round
-# @return uint256 The amount of pending returns for the given user and round
-pending_returns: public(HashMap[address, HashMap[uint256, uint256]])
-
-
 # @dev We define the `_id` private variable.
 # @notice The current round ID
 _id: uint256
@@ -207,27 +202,6 @@ def _add_song_to_latests_bidded_songs(id: uint256, song: Song):
 
 
 @internal
-def _withdraw(_round: uint256):
-    """
-    @dev Withdraws a previously refunded bid for a specific round
-    @notice Can only withdraw from completed rounds that are not the current round
-    @param _round The round ID to withdraw from
-    """
-    # Check if round exists and is not the current round
-    assert _round <= self._id, "auction: round does not exist"
-
-    r: Round = self.rounds[_round]
-    pending_amount: uint256 = self.pending_returns[msg.sender][_round]
-
-    # Check if round has pending returns and is not the current round
-    assert pending_amount > 0, "auction: no refunds"
-
-    # Transfer Songcoin from contract to sender
-    self.pending_returns[msg.sender][_round] = 0
-    assert extcall songcoin.transfer(msg.sender, pending_amount, default_return_value=False), "auction: transfer failed"
-
-
-@internal
 def _end_round():
     """
     @dev Ends the current round and processes the winning bid
@@ -291,44 +265,33 @@ def bid(_amount: uint256, _song: Song):
     @param _song The song to bid on
     """
     # Get current round
-    id: uint256 = self._id
-    r: Round = self.rounds[id]
+    current_round_id: uint256 = self._id
+    current_round: Round = self.rounds[current_round_id]
 
     # Check if round has started and is not over,
     # and if the bid is higher than the highest bid
-    assert block.timestamp >= r.start_time, "auction: round has not started"
-    assert block.timestamp < r.end_time, "auction: round is over"
-    assert _amount > r.highest_bid, "auction: bid is too low"
+    assert block.timestamp >= current_round.start_time, "auction: round has not started"
+    assert block.timestamp < current_round.end_time, "auction: round is over"
+    assert _amount > current_round.highest_bid, "auction: bid is too low"
     assert self._check_song_url(_song.iframe_url), "auction: invalid song url"
 
     # Transfer Songcoin from sender to contract
     assert extcall songcoin.transferFrom(msg.sender, self, _amount, default_return_value=False), "auction: transfer failed"
 
-    # Track refund for previous high bidder in this round
-    if r.highest_bidder != empty(address):
-        self.pending_returns[r.highest_bidder][id] += r.highest_bid
+    # Refund previous high bidder
+    if current_round.highest_bidder != empty(address):
+        extcall songcoin.transfer(current_round.highest_bidder, current_round.highest_bid, default_return_value=False)
 
     # Update round with new high bid
-    self.rounds[id].highest_bidder = msg.sender
-    self.rounds[id].highest_bid = _amount
-    self.rounds[id].song = _song
+    self.rounds[current_round_id].highest_bidder = msg.sender
+    self.rounds[current_round_id].highest_bid = _amount
+    self.rounds[current_round_id].song = _song
 
     # Emit SongBid event
-    log SongBid(sender=msg.sender, round_id=id, amount=_amount, song=_song)
+    log SongBid(sender=msg.sender, round_id=current_round_id, amount=_amount, song=_song)
 
     # Add song to latests bidded songs
-    self._add_song_to_latests_bidded_songs(id, _song)
-
-
-# @notice Withdraws a previously refunded bid for a specific round
-# @param _round The round ID to withdraw from
-@external
-def withdraw(_round: uint256):
-    """
-    @dev Withdraws a previously refunded bid for a specific round
-    @param _round The round ID to withdraw from
-    """
-    self._withdraw(_round)
+    self._add_song_to_latests_bidded_songs(current_round_id, _song)
 
 
 @external
@@ -339,30 +302,6 @@ def end_round_and_start_new_round():
     """
     self._end_round()
     self._start_new_round()
-
-
-@external
-def withdraw_all_pending_returns(_start: uint256, _end: uint256) -> uint256:
-    """
-    @dev Claims all pending returns for the caller
-    @param _start The start round ID to check
-    @param _end The end round ID to check
-    @return uint256 The total amount of tokens claimed
-    """
-    assert _start <= _end, "auction: invalid range"
-
-    # Get the current round ID
-    current_round_id: uint256 = self._id
-    assert _start <= current_round_id and _end <= current_round_id, "auction: invalid range"
-
-    # Get the total amount of pending returns
-    total: uint256 = 0
-    for i: uint256 in range(_start, _end + 1, bound=max_value(uint256)):
-        pending_amount: uint256 = self.pending_returns[msg.sender][i]
-        if pending_amount > 0:
-            self._withdraw(i)
-            total += pending_amount
-    return total
 
 
 @external
@@ -393,18 +332,6 @@ def get_round_duration() -> uint256:
     @return uint256 The round duration in seconds
     """
     return ROUND_DURATION
-
-
-@external
-@view
-def get_pending_returns(_user: address, _id: uint256) -> uint256:
-    """
-    @dev Returns the pending returns for a user in a specific round
-    @param _user The address to check
-    @param _id The round ID to check
-    @return uint256 The amount of pending returns
-    """
-    return self.pending_returns[_user][_id]
 
 
 @external
@@ -503,23 +430,3 @@ def get_latests_bidded_songs(_id: uint256) -> Song[MAX_NUMBER_OF_LATESTS_BIDDED_
     @return Song[] Array of latest bidded songs
     """
     return self.latests_bidded_songs[_id]
-
-
-@external
-@view
-def get_total_pending_returns(_from: address, _start: uint256, _end: uint256) -> uint256:
-    """
-    @dev Returns the total amount of pending returns for an address
-    @param _from The address to check
-    @param _start The start round ID to check
-    @param _end The end round ID to check
-    @return uint256 The total amount of pending returns
-    """
-    if _start > _end: return 0
-
-    total: uint256 = 0
-    for i: uint256 in range(_start, _end + 1, bound=max_value(uint256)):
-        if i > self._id:
-            break
-        total += self.pending_returns[_from][i]
-    return total
