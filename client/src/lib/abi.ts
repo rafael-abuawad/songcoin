@@ -127,27 +127,8 @@ export const auctionAbi = [
     type: "function",
   },
   {
-    inputs: [
-      {
-        name: "_round",
-        type: "uint256",
-      },
-    ],
-    name: "withdraw",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
     inputs: [],
-    name: "end_round",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "start_new_round",
+    name: "end_round_and_start_new_round",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -227,27 +208,6 @@ export const auctionAbi = [
   {
     inputs: [],
     name: "get_round_duration",
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        name: "_user",
-        type: "address",
-      },
-      {
-        name: "_id",
-        type: "uint256",
-      },
-    ],
-    name: "get_pending_returns",
     outputs: [
       {
         name: "",
@@ -439,35 +399,6 @@ export const auctionAbi = [
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        name: "_from",
-        type: "address",
-      },
-    ],
-    name: "get_total_pending_returns",
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "claim_pending_returns",
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -670,27 +601,6 @@ export const auctionAbi = [
         ],
         name: "",
         type: "tuple",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        name: "arg0",
-        type: "address",
-      },
-      {
-        name: "arg1",
-        type: "uint256",
-      },
-    ],
-    name: "pending_returns",
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
       },
     ],
     stateMutability: "view",

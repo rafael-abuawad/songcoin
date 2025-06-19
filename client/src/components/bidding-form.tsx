@@ -13,7 +13,6 @@ import {
   useWalletClient,
 } from "wagmi";
 import { ConnectKitButton } from "connectkit";
-import { auctionAbi } from "@/lib/abi";
 import { auctionAddress, songcoinAddress } from "@/lib/constants";
 import {
   erc20Abi,
@@ -34,6 +33,7 @@ import {
 } from "@/components/ui/form";
 import { waitForTransactionReceipt } from "viem/actions";
 import { CurrentRoundContext } from "@/context/current-round.context";
+import { auctionAbi } from "@/lib/abi";
 
 interface FormContext {
   currentRound:
@@ -392,7 +392,10 @@ export function BiddingForm() {
                           className="underline hover:text-primary cursor-pointer"
                           onClick={handleBalanceClick}
                         >
-                          {formatEther(balance ?? 0n)} SONGCOIN
+                          {Intl.NumberFormat("en-US").format(
+                            parseFloat(formatEther(balance ?? 0n)) ?? 0,
+                          )}{" "}
+                          SONGCOIN
                         </span>
                       </p>
                       <span className="text-xs text-muted-foreground">|</span>
@@ -402,9 +405,13 @@ export function BiddingForm() {
                           className="underline hover:text-primary cursor-pointer"
                           onClick={handleMinClick}
                         >
-                          {formatEther(
-                            (currentRound?.highest_bid ?? 0n) +
-                              1000000000000000000n,
+                          {Intl.NumberFormat("en-US").format(
+                            parseFloat(
+                              formatEther(
+                                (currentRound?.highest_bid ?? 0n) +
+                                  1000000000000000000n,
+                              ),
+                            ),
                           )}{" "}
                           SONGCOIN
                         </span>

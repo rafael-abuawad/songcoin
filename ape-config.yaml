@@ -3,4 +3,4 @@ name: songcoin
 plugins:
   - name: vyper
   - name: base
-  - name: foundry
+  - name: etherscan

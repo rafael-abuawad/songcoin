@@ -52,12 +52,15 @@ def deployer(accounts):
 @pytest.fixture(scope="module")
 def mock_erc20(project, deployer):
     mock_erc20 = project.mock_erc20.deploy(
-        "SongCoin", "SONG", 18, 1000000, "SongCoin", "1.0.0", sender=deployer
+        "Songcoin", "SONG", 18, 1000000, "Songcoin", "1.0.0", sender=deployer
     )
     return mock_erc20
 
 
 @pytest.fixture(scope="module")
 def auction(project, deployer, mock_erc20):
-    auction = project.auction.deploy(mock_erc20.address, sender=deployer)
+    round_duration = 60 * 15
+    auction = project.auction.deploy(
+        mock_erc20.address, round_duration, sender=deployer
+    )
     return auction

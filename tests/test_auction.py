@@ -100,9 +100,7 @@ def test_end_round(chain, auction, mock_erc20, deployer, bidder1, song):
     id = auction.get_current_round_id()
 
     # Set timestamp to end of round
-    active_round = auction.get_current_round()
-    end_time = active_round.end_time
-    chain.pending_timestamp += end_time
+    chain.pending_timestamp += auction.get_round_duration()
     chain.mine()
 
     # End round and start new round
@@ -125,9 +123,7 @@ def test_end_round_validation(chain, auction, mock_erc20, deployer, bidder1, son
     id = auction.get_current_round_id()
 
     # Set timestamp to end of round
-    current_round = auction.get_current_round()
-    end_time = current_round.end_time
-    chain.pending_timestamp += end_time
+    chain.pending_timestamp += auction.get_round_duration()
     chain.mine()
 
     # End round and start new round
@@ -157,9 +153,7 @@ def test_start_new_round(chain, auction, mock_erc20, deployer, bidder1, song):
     auction.bid(100, song, sender=bidder1)
 
     # Set timestamp to end of round
-    current_round = auction.get_current_round()
-    end_time = current_round.end_time
-    chain.pending_timestamp += end_time
+    chain.pending_timestamp += auction.get_round_duration()
     chain.mine()
 
     # End current round and start new round
@@ -254,13 +248,12 @@ def test_multiple_rounds(chain, auction, mock_erc20, deployer, bidder1, bidder2,
 
     # Verify bidder1 got immediate refund
     final_balance_bidder1 = mock_erc20.balanceOf(bidder1)
-    assert final_balance_bidder1 == initial_balance_bidder1 
+    assert final_balance_bidder1 == initial_balance_bidder1
 
     id = auction.get_current_round_id()
 
     # End round 1 and start round 2
-    current_round = auction.get_current_round()
-    chain.pending_timestamp += current_round.end_time
+    chain.pending_timestamp += auction.get_round_duration()
     chain.mine()
     auction.end_round_and_start_new_round(sender=deployer)
 
@@ -298,8 +291,7 @@ def test_bid_after_round_end(chain, auction, mock_erc20, deployer, bidder1, song
 
     # Set timestamp to after round end
     current_round_id = auction.get_current_round_id()
-    current_round = auction.get_current_round()
-    chain.pending_timestamp += current_round.end_time + 1000
+    chain.pending_timestamp += auction.get_round_duration()
     chain.mine()
 
     auction.end_round_and_start_new_round(sender=deployer)
@@ -314,8 +306,9 @@ def test_round_duration(auction):
     """Test round duration is correct"""
     current_round = auction.get_current_round()
     assert (
-        current_round.end_time - current_round.start_time == 60 * 60 * 24
-    )  # 1 day in seconds
+        current_round.end_time - current_round.start_time
+        == auction.get_round_duration()
+    )
 
 
 def test_bid_with_insufficient_balance(auction, mock_erc20, bidder1, song, deployer):
@@ -392,8 +385,7 @@ def test_last_winning_round(
     round1_id = auction.get_current_round_id()
 
     # End round 1 and start round 2
-    current_round = auction.get_current_round()
-    chain.pending_timestamp += current_round.end_time
+    chain.pending_timestamp += auction.get_round_duration()
     chain.mine()
     auction.end_round_and_start_new_round(sender=deployer)
 
@@ -415,8 +407,7 @@ def test_last_winning_round(
     auction.bid(bidder2_bid2, song, sender=bidder2)
 
     # End round 2 and start round 3
-    current_round = auction.get_current_round()
-    chain.pending_timestamp += current_round.end_time
+    chain.pending_timestamp += auction.get_round_duration()
     chain.mine()
     auction.end_round_and_start_new_round(sender=deployer)
 
@@ -432,7 +423,7 @@ def test_last_winning_round(
     assert last_winning_round.song.iframe_url == song["iframe_url"]
 
 
-def test_get_latests_bids(chain, auction, mock_erc20, deployer, bidder1, song):
+def test_get_latests_bids(auction, mock_erc20, deployer, bidder1, song):
     # Mint tokens to bidders
     mock_erc20.mint(bidder1, int(100e18), sender=deployer)
 
@@ -488,3 +479,29 @@ def test_get_latests_bids(chain, auction, mock_erc20, deployer, bidder1, song):
     assert (
         latest_bidded_songs[0].iframe_url == f"https://open.spotify.com/embed/track/{3}"
     )
+
+
+def test_end_round_and_start_new_round(
+    chain, auction, mock_erc20, deployer, bidder1, song
+):
+    # Mint tokens to bidder
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+
+    # Approve tokens for bidder
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+
+    # Set round ID
+    round_id = auction.get_current_round_id()
+
+    # Make a bid
+    auction.bid(100, song, sender=bidder1)
+
+    # End round 2 and start round 3
+    chain.pending_timestamp += auction.get_round_duration()
+    chain.mine()
+
+    # End round and start new round
+    auction.end_round_and_start_new_round(sender=deployer)
+
+    # Check round ID
+    assert auction.get_current_round_id() == round_id + 1

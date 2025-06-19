@@ -6,6 +6,8 @@ import { Clock, ExternalLink, AlertCircle } from "lucide-react";
 import { formatEther, zeroAddress } from "viem";
 import { truncateAddress } from "@/lib/utils";
 import { CurrentRoundContext } from "@/context/current-round.context";
+import { Button } from "./ui/button";
+import StartNewRound from "./start-new-round";
 
 export function CurrentSong() {
   const [timeLeft, setTimeLeft] = useState({
@@ -171,12 +173,17 @@ export function CurrentSong() {
               View on Basescan <ExternalLink className="h-3 w-3" />
             </a>
           </div>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {String(timeLeft.hours).padStart(2, "0")}:
-            {String(timeLeft.minutes).padStart(2, "0")}:
-            {String(timeLeft.seconds).padStart(2, "0")}
-          </Badge>
+          <div className="flex items-center gap-1">
+            {timeLeft.hours === 0 &&
+              timeLeft.minutes === 0 &&
+              timeLeft.seconds === 0 && <StartNewRound />}
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {String(timeLeft.hours).padStart(2, "0")}:
+              {String(timeLeft.minutes).padStart(2, "0")}:
+              {String(timeLeft.seconds).padStart(2, "0")}
+            </Badge>
+          </div>
         </div>
       </CardContent>
     </Card>

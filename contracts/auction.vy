@@ -108,8 +108,8 @@ latests_bidded_songs: public(HashMap[uint256, Song[MAX_NUMBER_OF_LATESTS_BIDDED_
 
 
 # @dev We define the `ROUND_DURATION` constant.
-# @notice Duration of each round in seconds (24 hours)
-ROUND_DURATION: constant(uint256) = 60 * 60 * 24 # 1 day
+# @notice Duration of each round in seconds
+ROUND_DURATION: immutable(uint256)
 
 
 # @dev We define the `_id` private variable.
@@ -127,13 +127,15 @@ exports: ow.__interface__
 #      and creates the genesis round
 # @param _songcoin The address of the SongCoin token contract
 @deploy
-def __init__(_songcoin: address):
+def __init__(_songcoin: address, _round_duration: uint256):
     """
     @dev Initializes the auction contract with the SongCoin token
          and creates the genesis round
     @param _songcoin The address of the SongCoin token contract
+    @param _round_duration The duration of each round in seconds
     """
     songcoin = IERC20(_songcoin)
+    ROUND_DURATION = _round_duration
     self._genesis_round()
     ow.__init__()
 

@@ -8,150 +8,88 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-// Import Routes
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as BidRouteImport } from "./routes/bid";
+import { Route as AboutRouteImport } from "./routes/about";
+import { Route as IndexRouteImport } from "./routes/index";
 
-import { Route as rootRoute } from "./routes/__root";
-import { Route as WithdrawImport } from "./routes/withdraw";
-import { Route as BidImport } from "./routes/bid";
-import { Route as AboutImport } from "./routes/about";
-import { Route as IndexImport } from "./routes/index";
-
-// Create/Update Routes
-
-const WithdrawRoute = WithdrawImport.update({
-  id: "/withdraw",
-  path: "/withdraw",
-  getParentRoute: () => rootRoute,
-} as any);
-
-const BidRoute = BidImport.update({
+const BidRoute = BidRouteImport.update({
   id: "/bid",
   path: "/bid",
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any);
-
-const AboutRoute = AboutImport.update({
+const AboutRoute = AboutRouteImport.update({
   id: "/about",
   path: "/about",
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any);
-
-const IndexRoute = IndexImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any);
-
-// Populate the FileRoutesByPath interface
-
-declare module "@tanstack/react-router" {
-  interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/about": {
-      id: "/about";
-      path: "/about";
-      fullPath: "/about";
-      preLoaderRoute: typeof AboutImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/bid": {
-      id: "/bid";
-      path: "/bid";
-      fullPath: "/bid";
-      preLoaderRoute: typeof BidImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/withdraw": {
-      id: "/withdraw";
-      path: "/withdraw";
-      fullPath: "/withdraw";
-      preLoaderRoute: typeof WithdrawImport;
-      parentRoute: typeof rootRoute;
-    };
-  }
-}
-
-// Create and export the route tree
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/bid": typeof BidRoute;
-  "/withdraw": typeof WithdrawRoute;
 }
-
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/bid": typeof BidRoute;
-  "/withdraw": typeof WithdrawRoute;
 }
-
 export interface FileRoutesById {
-  __root__: typeof rootRoute;
+  __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/bid": typeof BidRoute;
-  "/withdraw": typeof WithdrawRoute;
 }
-
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/about" | "/bid" | "/withdraw";
+  fullPaths: "/" | "/about" | "/bid";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/about" | "/bid" | "/withdraw";
-  id: "__root__" | "/" | "/about" | "/bid" | "/withdraw";
+  to: "/" | "/about" | "/bid";
+  id: "__root__" | "/" | "/about" | "/bid";
   fileRoutesById: FileRoutesById;
 }
-
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AboutRoute: typeof AboutRoute;
   BidRoute: typeof BidRoute;
-  WithdrawRoute: typeof WithdrawRoute;
+}
+
+declare module "@tanstack/react-router" {
+  interface FileRoutesByPath {
+    "/bid": {
+      id: "/bid";
+      path: "/bid";
+      fullPath: "/bid";
+      preLoaderRoute: typeof BidRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/about": {
+      id: "/about";
+      path: "/about";
+      fullPath: "/about";
+      preLoaderRoute: typeof AboutRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+  }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   BidRoute: BidRoute,
-  WithdrawRoute: WithdrawRoute,
 };
-
-export const routeTree = rootRoute
+export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>();
-
-/* ROUTE_MANIFEST_START
-{
-  "routes": {
-    "__root__": {
-      "filePath": "__root.tsx",
-      "children": [
-        "/",
-        "/about",
-        "/bid",
-        "/withdraw"
-      ]
-    },
-    "/": {
-      "filePath": "index.tsx"
-    },
-    "/about": {
-      "filePath": "about.tsx"
-    },
-    "/bid": {
-      "filePath": "bid.tsx"
-    },
-    "/withdraw": {
-      "filePath": "withdraw.tsx"
-    }
-  }
-}
-ROUTE_MANIFEST_END */
