@@ -1,10 +1,10 @@
 import click
-from ape import networks, accounts, project
+from ape import accounts, project
 
 BRAVE_TEST_WALLET = "0xFC65A46ea323Ec049A568F7F39150C5b83f72305"
 
 
-def deploy_songcoin(network_name, deployer):
+def deploy_songcoin(deployer):
     click.echo("--------SONGCOIN DEPLOYMENT--------")
     click.echo("Deploying Songcoin...")
     songcoin = project.mock_erc20.deploy(
@@ -12,25 +12,19 @@ def deploy_songcoin(network_name, deployer):
     )
     click.echo(f"Songcoin deployed to {songcoin.address}")
 
-    if network_name == "local":
-        # Fund brave test wallet
-        deployer.transfer(BRAVE_TEST_WALLET, int(1e18))
-        songcoin.mint(BRAVE_TEST_WALLET, int(150e18), sender=deployer)
+    # Fund test wallet
+    deployer.transfer(BRAVE_TEST_WALLET, int(1e18))
+    songcoin.mint(BRAVE_TEST_WALLET, int(150e18), sender=deployer)
 
     return songcoin
 
 
 def main():
-    network_name = networks.provider.network.name
-    if network_name == "local":
-        deployer = accounts.test_accounts[0]
-        deployer.balance += int(100e18)
-        songcoin = deploy_songcoin(network_name, deployer)
-    else:
-        deployer = accounts.load("songcoin")
-        songcoin = deploy_songcoin(network_name, deployer)
+    deployer = accounts.load("songcoin")
+    songcoin = "0x779a9cDd0D8527853be3b0047cEA866c8E5E7356"
 
     click.echo("--------SONGCOIN AUCTION DEPLOYMENT--------")
     click.echo("Deploying Auction...")
-    auction = project.auction.deploy(songcoin, sender=deployer)
+    duration = 60 * 5
+    auction = project.auction.deploy(songcoin, duration, sender=deployer)
     click.echo(f"Auction deployed to {auction.address}")

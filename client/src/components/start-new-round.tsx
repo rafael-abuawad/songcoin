@@ -20,11 +20,18 @@ export default function StartNewRound() {
       return;
     }
 
-    const tx = await writeContractAsync({
-      address: auctionAddress,
-      abi: auctionAbi,
-      functionName: "end_round_and_start_new_round",
-    });
+    toast.promise(
+      writeContractAsync({
+        address: auctionAddress,
+        abi: auctionAbi,
+        functionName: "end_round_and_start_new_round",
+      }),
+      {
+        loading: "Starting new round...",
+        success: "New round started",
+        error: "Unable to start new round.",
+      },
+    );
   };
 
   useEffect(() => {
