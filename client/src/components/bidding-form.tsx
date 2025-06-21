@@ -1,4 +1,3 @@
-import { useContext, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,12 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DiscIcon, Music, Wallet } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useAccount,
-  useReadContracts,
-  useWriteContract,
-  useWalletClient,
-} from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { auctionAddress, songcoinAddress } from "@/lib/constants";
 import {
@@ -21,7 +15,6 @@ import {
   parseUnits,
   type Address,
 } from "viem";
-import { toast } from "sonner";
 import {
   Form,
   FormControl,
@@ -30,18 +23,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { waitForTransactionReceipt } from "viem/actions";
-import { CurrentRoundContext } from "@/context/current-round.context";
 import { auctionAbi } from "@/lib/abi";
-import ApproveToken from "./approve-token";
+import { ApproveButton } from "./approve-button";
+import { BidButton } from "./bid-button";
 
 interface FormContext {
-  currentRound:
-    | {
-        highest_bid: bigint;
-      }
-    | undefined;
-  allowance: bigint;
+  highestBid: bigint;
 }
 
 const formSchema = z.object({
@@ -66,11 +53,11 @@ const formSchema = z.object({
     .min(1, "Bid amount is required")
     .refine((val) => !isNaN(Number(val)), "Must be a valid number")
     .superRefine((val, ctx) => {
-      const currentRound = (ctx.path[0] as unknown as FormContext)
-        ?.currentRound;
-      console.log("currentRound", currentRound);
-      if (!currentRound) return;
-      if (Number(val) <= Number(formatEther(currentRound.highest_bid))) {
+      const ctxt = ctx.path[0] as unknown as FormContext;
+      const highestBid = ctxt?.highestBid;
+      if (!highestBid) return;
+
+      if (Number(val) <= Number(formatEther(highestBid))) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Bid must be higher than current highest bid",
@@ -83,19 +70,26 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function BiddingForm() {
   const { isConnected, address } = useAccount();
-  const { refetch: refetchCurrentRound } = useContext(CurrentRoundContext);
+  if (!address && !isConnected) {
+    return (
+      <ConnectKitButton.Custom>
+        {({ show }) => {
+          return (
+            <Button className="w-full" variant="secondary" onClick={show}>
+              <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
+            </Button>
+          );
+        }}
+      </ConnectKitButton.Custom>
+    );
+  }
+
   const { data: result, refetch: refetchResult } = useReadContracts({
     contracts: [
       {
         abi: auctionAbi,
         address: auctionAddress,
-        functionName: "get_current_round",
-      },
-      {
-        abi: erc20Abi,
-        address: songcoinAddress,
-        functionName: "allowance",
-        args: [address ?? ("" as Address), auctionAddress],
+        functionName: "get_current_round_highest_bid",
       },
       {
         abi: erc20Abi,
@@ -109,19 +103,11 @@ export function BiddingForm() {
         functionName: "decimals",
       },
     ],
-    query: {
-      enabled: !!address && isConnected,
-    },
   });
 
-  const currentRound = result?.[0]?.result;
-  const allowance = result?.[1]?.result;
-  const balance = result?.[2]?.result;
-  const decimals = result?.[3]?.result;
-
-  const { writeContractAsync } = useWriteContract();
-  const { data: walletClient } = useWalletClient();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const highestBid = result?.[0]?.result;
+  const balance = result?.[1]?.result;
+  const decimals = result?.[2]?.result;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -132,8 +118,7 @@ export function BiddingForm() {
       bidAmount: "",
     },
     context: {
-      currentRound,
-      allowance,
+      highestBid,
     } as FormContext,
   });
 
@@ -141,110 +126,37 @@ export function BiddingForm() {
     try {
       const iframeRegex = /<iframe[^>]*src="([^"]+)"[^>]*>/;
       const match = url.match(iframeRegex);
-      if (!match) return null;
+      if (!match) return "";
 
       const srcUrl = match[1];
       // Validate that it's a Spotify embed URL
       if (!srcUrl.startsWith("https://open.spotify.com/embed/track/")) {
-        return null;
+        return "";
       }
       return srcUrl;
     } catch {
-      return null;
+      return "";
     }
   };
 
   const handleBalanceClick = () => {
-    form.setValue("bidAmount", formatEther(balance ?? 0n));
+    const value = formatEther(balance ?? 0n);
+    form.setValue("bidAmount", value);
   };
 
   const handleMinClick = () => {
-    form.setValue(
-      "bidAmount",
-      formatEther((currentRound?.highest_bid ?? 0n) + 1000000000000000000n),
-    );
-  };
-
-  const onSubmit = async (values: FormValues) => {
-    if (!currentRound || !walletClient) {
-      toast.error("Could not place bid, please try again.");
-      return;
-    }
-
-    setIsProcessing(true);
-    const toastId = toast.loading("Processing your bid...");
-
-    try {
-      const bidAmount = parseUnits(values.bidAmount, decimals ?? 18);
-      const needsApproval = allowance === undefined || allowance < bidAmount;
-
-      if (needsApproval) {
-        toast.loading("Approving token...", { id: toastId });
-        const approvalHash = await writeContractAsync({
-          abi: erc20Abi,
-          address: songcoinAddress,
-          functionName: "approve",
-          args: [auctionAddress, bidAmount],
-        });
-        await waitForTransactionReceipt(walletClient, { hash: approvalHash });
-        const { data: newData } = await refetchResult();
-        const newAllowance = newData?.[1]?.result;
-
-        if (newAllowance === undefined || newAllowance < bidAmount) {
-          throw new Error(
-            "Approval failed or was insufficient. Please try again.",
-          );
-        }
-      }
-
-      const spotifyUrl = validateSpotifyEmbed(values.songUrl);
-      if (!spotifyUrl) {
-        throw new Error(
-          "Invalid Spotify embed URL. Please use the embed code from Spotify.",
-        );
-      }
-
-      toast.loading("Placing your bid...", { id: toastId });
-      const bidHash = await writeContractAsync({
-        abi: auctionAbi,
-        address: auctionAddress,
-        functionName: "bid",
-        args: [
-          bidAmount,
-          {
-            title: values.songName,
-            artist: values.artistName,
-            iframe_hash: hashMessage(spotifyUrl),
-            iframe_url: spotifyUrl,
-          },
-        ],
-      });
-
-      await waitForTransactionReceipt(walletClient, { hash: bidHash });
-      await Promise.all([refetchResult(), refetchCurrentRound()]);
-
-      form.reset();
-      toast.success("Bid placed successfully!", { id: toastId });
-    } catch (error) {
-      toast.error("Failed to place bid. Please try again.", {
-        id: toastId,
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+    const minBidAmount = +formatEther(highestBid ?? 0n) + 1;
+    const value = minBidAmount.toFixed(3);
+    form.setValue("bidAmount", value);
   };
 
   const refetchForm = () => {
     refetchResult();
-    refetchCurrentRound();
   };
 
   const bidAmount = form.watch("bidAmount") || "0";
   const bidAmountParsed = parseUnits(bidAmount, decimals ?? 18);
-  const needsApproval =
-    allowance !== undefined &&
-    bidAmountParsed > 0n &&
-    allowance < bidAmountParsed;
+  const minBidAmount = +formatEther(highestBid ?? 0n) + 1;
 
   return (
     <div className="p-3 bg-card rounded-lg border">
@@ -253,181 +165,155 @@ export function BiddingForm() {
         <p className="text-sm text-muted-foreground">
           Current highest bid:{" "}
           <span className="font-semibold text-primary">
-            {formatEther(currentRound?.highest_bid ?? 0n)} SONGCOIN
+            {formatEther(highestBid ?? 0n)} SONGCOIN
           </span>
         </p>
       </div>
-      <div>
-        {!isConnected ? (
-          <ConnectKitButton.Custom>
-            {({ show }) => {
-              return (
-                <Button className="w-full" variant="secondary" onClick={show}>
-                  <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
-                </Button>
-              );
+
+      <Form {...form}>
+        <form className="space-y-4">
+          {/* Song Name */}
+          <FormField
+            control={form.control}
+            name="songName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Song Name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Enter song name"
+                    className="bg-secondary/10"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Artist Name */}
+          <FormField
+            control={form.control}
+            name="artistName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Artist Name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Enter artist name"
+                    className="bg-secondary/10"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Song Embed Spotify Code */}
+          <FormField
+            control={form.control}
+            name="songUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Song Embed Spotify Code</FormLabel>
+                <div className="rounded-md border bg-secondary/10">
+                  <div className="mb-2 flex items-center gap-2 p-3">
+                    <Music className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Paste iframe HTML code below
+                    </span>
+                  </div>
+                  <FormControl>
+                    <Textarea
+                      placeholder="<iframe src='https://open.spotify.com/embed/track/...' ...></iframe>"
+                      className="min-h-[100px] border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                      {...field}
+                    />
+                  </FormControl>
+                </div>
+                <p className="text-xs text-muted-foreground underline">
+                  <a
+                    href="https://developer.spotify.com/documentation/embeds/tutorials/creating-an-embed"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    We currently only support Spotify embeds. You can get the
+                    embed code by right clicking on the Spotify player and
+                    selecting "Embed track".
+                  </a>
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Bid Amount */}
+          <FormField
+            control={form.control}
+            name="bidAmount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Your Bid (SONGCOIN)</FormLabel>
+                <div className="flex items-center rounded-md border bg-secondary/10 px-3">
+                  <span className="text-muted-foreground">
+                    <DiscIcon className="h-4 w-4" />
+                  </span>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min={minBidAmount.toFixed(3)}
+                      placeholder={`Min: ${minBidAmount.toFixed(3)} SONGCOIN`}
+                      className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                      {...field}
+                    />
+                  </FormControl>
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Your Balance:{" "}
+                    <span
+                      className="underline hover:text-primary cursor-pointer"
+                      onClick={handleBalanceClick}
+                    >
+                      {formatEther(balance ?? 0n)} SONGCOIN
+                    </span>
+                  </p>
+                  <span className="text-xs text-muted-foreground">|</span>
+                  <p className="text-xs text-muted-foreground">
+                    Min:{" "}
+                    <span
+                      className="underline hover:text-primary cursor-pointer"
+                      onClick={handleMinClick}
+                    >
+                      {minBidAmount.toFixed(3)} SONGCOIN
+                    </span>
+                  </p>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <ApproveButton
+            className="mt-2 w-full cursor-pointer"
+            bidAmount={bidAmountParsed}
+            onSuccess={refetchForm}
+          />
+
+          <BidButton
+            bidAmount={bidAmountParsed}
+            song={{
+              title: form.watch("songName"),
+              artist: form.watch("artistName"),
+              iframe_hash: hashMessage(form.watch("songUrl")),
+              iframe_url: validateSpotifyEmbed(form.watch("songUrl")),
             }}
-          </ConnectKitButton.Custom>
-        ) : (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="songName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Song Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter song name"
-                        className="bg-secondary/10"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="artistName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Artist Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter artist name"
-                        className="bg-secondary/10"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="songUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Song Embed Spotify Code</FormLabel>
-                    <div className="rounded-md border bg-secondary/10">
-                      <div className="mb-2 flex items-center gap-2 p-3">
-                        <Music className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          Paste iframe HTML code below
-                        </span>
-                      </div>
-                      <FormControl>
-                        <Textarea
-                          placeholder="<iframe src='https://open.spotify.com/embed/track/...' ...></iframe>"
-                          className="min-h-[100px] border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                          {...field}
-                        />
-                      </FormControl>
-                    </div>
-                    <p className="text-xs text-muted-foreground underline">
-                      <a
-                        href="https://developer.spotify.com/documentation/embeds/tutorials/creating-an-embed"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        We currently only support Spotify embeds. You can get
-                        the embed code by right clicking on the Spotify player
-                        and selecting "Embed track".
-                      </a>
-                    </p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="bidAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Your Bid (SONGCOIN)</FormLabel>
-                    <div className="flex items-center rounded-md border bg-secondary/10 px-3">
-                      <span className="text-muted-foreground">
-                        <DiscIcon className="h-4 w-4" />
-                      </span>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.001"
-                          min={
-                            +formatEther(currentRound?.highest_bid ?? 0n) +
-                            0.001
-                          }
-                          placeholder={`Min: ${(+formatEther(currentRound?.highest_bid ?? 0n) + 0.001).toFixed(3)} SONGCOIN`}
-                          className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                          {...field}
-                        />
-                      </FormControl>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        Your Balance:{" "}
-                        <span
-                          className="underline hover:text-primary cursor-pointer"
-                          onClick={handleBalanceClick}
-                        >
-                          {Intl.NumberFormat("en-US").format(
-                            parseFloat(formatEther(balance ?? 0n)) ?? 0,
-                          )}{" "}
-                          SONGCOIN
-                        </span>
-                      </p>
-                      <span className="text-xs text-muted-foreground">|</span>
-                      <p className="text-xs text-muted-foreground">
-                        Min:{" "}
-                        <span
-                          className="underline hover:text-primary cursor-pointer"
-                          onClick={handleMinClick}
-                        >
-                          {Intl.NumberFormat("en-US").format(
-                            parseFloat(
-                              formatEther(
-                                (currentRound?.highest_bid ?? 0n) +
-                                  1000000000000000000n,
-                              ),
-                            ),
-                          )}{" "}
-                          SONGCOIN
-                        </span>
-                      </p>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {allowance && allowance.toString()}
-              {needsApproval && (
-                <ApproveToken
-                  bidAmount={bidAmountParsed}
-                  onSuccess={refetchForm}
-                />
-              )}
-
-              <Button
-                className="mt-2 w-full cursor-pointer"
-                variant="secondary"
-                disabled={isProcessing}
-                type="submit"
-              >
-                {isProcessing
-                  ? "Confirming on blockchain..."
-                  : needsApproval
-                    ? "Approve & Place Bid"
-                    : "Place Bid"}
-              </Button>
-            </form>
-          </Form>
-        )}
-      </div>
+            onSuccess={refetchForm}
+          />
+        </form>
+      </Form>
     </div>
   );
 }

@@ -1,11 +1,10 @@
-import click
 from ape import accounts, project
 from eth_pydantic_types import HexBytes
 
 
-BRAVE_TEST_WALLET = "0xC14fF56E720f79d08413CE00533256433D2ED929"
-AUCTION_ADDRESS = "0xC0a0958b5597E53e3c4e9925518fc00F7e9daDCC"
-SONGCOIN_ADDRESS = "0x779a9cDd0D8527853be3b0047cEA866c8E5E7356"
+AUCTION_ADDRESS = "0x0d0902dc4970556e2BE2C97f507DFD14B15F51c0"
+SONGCOIN_ADDRESS = "0x3690a3Dd53f77D4F343ac8D263c5b2039c5234F8"
+TEST_WALLETS = []
 
 
 def main():
@@ -14,11 +13,12 @@ def main():
     auction = project.auction.at(AUCTION_ADDRESS)
 
     # Get the deployer account
-    deployer = accounts.load("songcoin")
+    deployer = accounts.load("brave")
     deployer.set_autosign(True)
 
-    # Mint testwallet
-    songcoin.mint(BRAVE_TEST_WALLET, int(150e18), sender=deployer)
+    # Mint test wallets
+    for wallet in TEST_WALLETS:
+        songcoin.mint(wallet, int(150e18), sender=deployer)
 
     # Create a list of songs
     songs = [

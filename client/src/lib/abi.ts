@@ -207,6 +207,18 @@ export const auctionAbi = [
   },
   {
     inputs: [],
+    name: "get_current_round_highest_bid",
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "get_round_duration",
     outputs: [
       {
@@ -611,6 +623,10 @@ export const auctionAbi = [
       {
         name: "_songcoin",
         type: "address",
+      },
+      {
+        name: "_round_duration",
+        type: "uint256",
       },
     ],
     stateMutability: "nonpayable",

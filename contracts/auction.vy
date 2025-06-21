@@ -328,6 +328,17 @@ def get_current_round_id() -> uint256:
 
 @external
 @view
+def get_current_round_highest_bid() -> uint256:
+    """
+    @dev Returns the current round highest bid
+    @return uint256 The current round highest bid
+    """
+    return self.rounds[self._id].highest_bid
+
+
+
+@external
+@view
 def get_round_duration() -> uint256:
     """
     @dev Returns the duration of each round in seconds
