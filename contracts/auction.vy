@@ -223,7 +223,8 @@ def _end_round():
     self.last_winning_round = self.rounds[current_round_id]
 
     # Burn the highest bid
-    extcall songcoin.burn(active_round.highest_bid)
+    if active_round.highest_bid > 0:
+        extcall songcoin.burn(active_round.highest_bid)
 
 
 # @notice Starts a new round

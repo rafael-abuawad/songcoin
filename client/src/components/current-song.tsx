@@ -6,7 +6,6 @@ import { Clock, ExternalLink, AlertCircle } from "lucide-react";
 import { formatEther, zeroAddress } from "viem";
 import { truncateAddress } from "@/lib/utils";
 import { CurrentRoundContext } from "@/context/current-round.context";
-import { Button } from "./ui/button";
 import StartNewRound from "./start-new-round";
 
 export function CurrentSong() {

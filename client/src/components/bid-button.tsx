@@ -24,8 +24,6 @@ export function BidButton({
   className,
 }: BidButtonProps) {
   const { address } = useAccount();
-  if (!address) return null;
-
   const { writeContractAsync, isPending, isError, isSuccess, failureReason } =
     useWriteContract();
   const { data } = useReadContracts({
@@ -39,9 +37,12 @@ export function BidButton({
         address: songcoinAddress,
         abi: erc20Abi,
         functionName: "allowance",
-        args: [address, auctionAddress],
+        args: [address!, auctionAddress],
       },
     ],
+    query: {
+      enabled: !!address,
+    },
   });
 
   const currentHighestBid = data?.[0]?.result;
@@ -64,10 +65,13 @@ export function BidButton({
         functionName: "bid",
         args: [bidAmount, song],
       });
+
+      toast.dismiss();
+      toast.success("Bid successful!");
       onSuccess();
-      toast.success("Bid successful");
     } catch (error) {
       console.error(error);
+      toast.dismiss();
       toast.error(() => {
         return (
           <div>
@@ -111,7 +115,7 @@ export function BidButton({
     <Button
       type="submit"
       className={className}
-      disabled={isDisabled}
+      disabled={isDisabled || isSuccess}
       onClick={handleBid}
     >
       {buttonText}

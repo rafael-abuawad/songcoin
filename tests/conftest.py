@@ -59,7 +59,7 @@ def mock_erc20(project, deployer):
 
 @pytest.fixture(scope="module")
 def auction(project, deployer, mock_erc20):
-    round_duration = 60 * 15
+    round_duration = 60 * 1
     auction = project.auction.deploy(
         mock_erc20.address, round_duration, sender=deployer
     )

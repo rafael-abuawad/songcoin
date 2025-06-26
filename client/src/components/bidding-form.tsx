@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DiscIcon, Music, Wallet } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { useAccount, useReadContracts } from "wagmi";
+import { useAccount, useBalance, useReadContract } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { auctionAddress, songcoinAddress } from "@/lib/constants";
 import {
@@ -70,44 +70,22 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function BiddingForm() {
   const { isConnected, address } = useAccount();
-  if (!address && !isConnected) {
-    return (
-      <ConnectKitButton.Custom>
-        {({ show }) => {
-          return (
-            <Button className="w-full" variant="secondary" onClick={show}>
-              <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
-            </Button>
-          );
-        }}
-      </ConnectKitButton.Custom>
-    );
-  }
-
-  const { data: result, refetch: refetchResult } = useReadContracts({
-    contracts: [
-      {
-        abi: auctionAbi,
-        address: auctionAddress,
-        functionName: "get_current_round_highest_bid",
-      },
-      {
-        abi: erc20Abi,
-        address: songcoinAddress,
-        functionName: "balanceOf",
-        args: [address ?? ("" as Address)],
-      },
-      {
-        abi: erc20Abi,
-        address: songcoinAddress,
-        functionName: "decimals",
-      },
-    ],
+  const { data } = useBalance({
+    address: address ?? ("" as Address),
+    token: songcoinAddress,
   });
-
-  const highestBid = result?.[0]?.result;
-  const balance = result?.[1]?.result;
-  const decimals = result?.[2]?.result;
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    abi: erc20Abi,
+    address: songcoinAddress,
+    functionName: "allowance",
+    args: [address ?? ("" as Address), auctionAddress],
+  });
+  const { data: highestBid, refetch: refetchHighestBid } = useReadContract({
+    abi: auctionAbi,
+    address: auctionAddress,
+    functionName: "get_current_round_highest_bid",
+  });
+  const { decimals, value: balance } = data ?? { decimals: 18, value: 0n };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -151,12 +129,27 @@ export function BiddingForm() {
   };
 
   const refetchForm = () => {
-    refetchResult();
+    refetchHighestBid();
+    refetchAllowance();
   };
 
   const bidAmount = form.watch("bidAmount") || "0";
   const bidAmountParsed = parseUnits(bidAmount, decimals ?? 18);
   const minBidAmount = +formatEther(highestBid ?? 0n) + 1;
+
+  if (!address && !isConnected) {
+    return (
+      <ConnectKitButton.Custom>
+        {({ show }) => {
+          return (
+            <Button className="w-full" variant="secondary" onClick={show}>
+              <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
+            </Button>
+          );
+        }}
+      </ConnectKitButton.Custom>
+    );
+  }
 
   return (
     <div className="p-3 bg-card rounded-lg border">
@@ -171,7 +164,7 @@ export function BiddingForm() {
       </div>
 
       <Form {...form}>
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={form.handleSubmit(() => null)}>
           {/* Song Name */}
           <FormField
             control={form.control}
@@ -296,22 +289,77 @@ export function BiddingForm() {
             )}
           />
 
-          <ApproveButton
-            className="mt-2 w-full cursor-pointer"
-            bidAmount={bidAmountParsed}
-            onSuccess={refetchForm}
-          />
+          <ul>
+            <li>
+              <span>Balance: {formatEther(balance ?? 0n)} SONGCOIN</span>
+            </li>
+            <li>
+              <span>Allowance: {formatEther(allowance ?? 0n)} SONGCOIN</span>
+            </li>
+            <li>
+              <span>Highest Bid: {formatEther(highestBid ?? 0n)} SONGCOIN</span>
+            </li>
+            <li>
+              <span>Min Bid: {minBidAmount.toFixed(3)} SONGCOIN</span>
+            </li>
+          </ul>
 
-          <BidButton
-            bidAmount={bidAmountParsed}
-            song={{
-              title: form.watch("songName"),
-              artist: form.watch("artistName"),
-              iframe_hash: hashMessage(form.watch("songUrl")),
-              iframe_url: validateSpotifyEmbed(form.watch("songUrl")),
-            }}
-            onSuccess={refetchForm}
-          />
+          {balance >= minBidAmount ? (
+            <div className="flex flex-col justify-center min-h-10">
+              {!allowance || allowance < bidAmountParsed || allowance === 0n ? (
+                <div className="flex flex-col items-center gap-2">
+                  <ApproveButton
+                    className="mt-2 w-full cursor-pointer"
+                    bidAmount={bidAmountParsed}
+                    onSuccess={refetchForm}
+                    disabled={bidAmount === "0"}
+                  />
+                  {bidAmount === "0" ? (
+                    <span className="text-xs text-muted-foreground">
+                      Input a bid amount to approve.
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      You do not have enough allowance to bid. Approving{" "}
+                      {formatEther(bidAmountParsed)} SONGCOIN...
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <BidButton
+                    bidAmount={bidAmountParsed}
+                    className="mt-2 w-full cursor-pointer"
+                    song={{
+                      title: form.watch("songName"),
+                      artist: form.watch("artistName"),
+                      iframe_hash: hashMessage(form.watch("songUrl")),
+                      iframe_url: validateSpotifyEmbed(form.watch("songUrl")),
+                    }}
+                    onSuccess={refetchForm}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Ready to place your bid!
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col justify-center min-h-10">
+              <div className="flex flex-col items-center gap-2">
+                <Button
+                  className="mt-2 w-full cursor-pointer"
+                  variant="secondary"
+                  disabled
+                >
+                  Insufficient Balance
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  You do not have enough SONGCOIN to bid.
+                </span>
+              </div>
+            </div>
+          )}
         </form>
       </Form>
     </div>

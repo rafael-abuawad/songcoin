@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auctionAbi } from "@/lib/abi";
 import { auctionAddress } from "@/lib/constants";
-import { Music } from "lucide-react";
+import type { Song } from "@/lib/types";
+import { Music, Crown } from "lucide-react";
 import { useReadContract } from "wagmi";
 
 export function LatestBids() {
@@ -9,6 +10,15 @@ export function LatestBids() {
     address: auctionAddress,
     abi: auctionAbi,
     functionName: "get_current_round_id",
+  });
+
+  const { data: currentRound } = useReadContract({
+    address: auctionAddress,
+    abi: auctionAbi,
+    functionName: "get_current_round",
+    query: {
+      enabled: currentRoundId !== undefined,
+    },
   });
 
   const {
@@ -25,10 +35,20 @@ export function LatestBids() {
     },
   });
 
-  console.log({ latestBids, currentRoundId, error, isLoading });
+  console.log({ latestBids, currentRoundId, currentRound, error, isLoading });
 
   const emptyLatestBids =
     latestBids?.filter((bid) => bid.title !== "").length === 0;
+
+  // Helper function to check if a song is the current highest bid
+  const isHighestBid = (song: Song) => {
+    if (!currentRound || !currentRound.song) return false;
+    return (
+      song.title === currentRound.song.title &&
+      song.artist === currentRound.song.artist &&
+      song.iframe_url === currentRound.song.iframe_url
+    );
+  };
 
   return (
     <Card>
@@ -45,24 +65,48 @@ export function LatestBids() {
             latestBids
               .filter((bid) => bid.title !== "")
               .reverse()
-              .map((bid, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-lg border bg-secondary/10 p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary">
-                      <Music className="h-4 w-4" />
+              .map((bid, i) => {
+                const isHighest = isHighestBid(bid);
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between rounded-lg border p-3 ${
+                      isHighest
+                        ? "bg-primary/10 border-primary/20"
+                        : "bg-secondary/10"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                          isHighest
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-primary/20 text-primary"
+                        }`}
+                      >
+                        {isHighest ? (
+                          <Crown className="h-4 w-4" />
+                        ) : (
+                          <Music className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{bid.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {bid.artist}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{bid.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {bid.artist}
-                      </p>
-                    </div>
+                    {isHighest && (
+                      <div className="text-right">
+                        <p className="text-xs font-medium text-primary">
+                          Highest Bid
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
           )}
         </div>
       </CardContent>

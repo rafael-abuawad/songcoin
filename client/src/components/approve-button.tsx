@@ -1,35 +1,51 @@
-import { useWriteContract } from "wagmi";
+import { useClient, useWriteContract } from "wagmi";
 import { Button } from "./ui/button";
 import { erc20Abi } from "viem";
 import { auctionAddress, songcoinAddress } from "@/lib/constants";
-import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useState } from "react";
+import { waitForTransactionReceipt } from "viem/actions";
 
 export function ApproveButton({
   bidAmount,
   onSuccess,
   className,
+  disabled,
 }: {
   bidAmount: bigint;
   onSuccess: () => void;
   className?: string;
+  disabled?: boolean;
 }) {
-  const { writeContract, status, failureReason } = useWriteContract();
+  const client = useClient();
+  const [isApproving, setIsApproving] = useState(false);
+  const { writeContractAsync, status, failureReason } = useWriteContract();
 
-  const handleApprove = () => {
-    writeContract({
-      abi: erc20Abi,
-      address: songcoinAddress,
-      functionName: "approve",
-      args: [auctionAddress, bidAmount],
-    });
-  };
+  const handleApprove = async () => {
+    if (!client) return;
 
-  useEffect(() => {
-    if (status === "success") {
+    try {
+      setIsApproving(true);
+      toast.loading("Approving...");
+      const tx = await writeContractAsync({
+        abi: erc20Abi,
+        address: songcoinAddress,
+        functionName: "approve",
+        args: [auctionAddress, bidAmount],
+      });
+      await waitForTransactionReceipt(client, { hash: tx, confirmations: 2 });
+
+      toast.dismiss();
+      toast.success("Approval successful!");
       onSuccess();
+      setIsApproving(false);
+    } catch (error) {
+      console.error(error);
+      toast.dismiss();
+      toast.error("Approval failed");
     }
-  }, [status, onSuccess]);
+  };
 
   const isPending = status === "pending";
   const isSuccess = status === "success";
@@ -37,7 +53,7 @@ export function ApproveButton({
 
   const buttonText = isError
     ? "Retry"
-    : isPending
+    : isPending || isApproving
       ? "Approving..."
       : isSuccess
         ? "Approved"
@@ -45,19 +61,14 @@ export function ApproveButton({
 
   const button = (
     <Button
-      onClick={handleApprove}
-      variant="secondary"
-      disabled={isPending || isSuccess}
-      className={cn(isPending && "animate-pulse", className)}
+      onClick={isSuccess ? onSuccess : handleApprove}
+      disabled={isPending || isApproving || disabled}
+      className={cn((isPending || isApproving) && "animate-pulse", className)}
       type="button"
     >
       {buttonText}
     </Button>
   );
-
-  if (isSuccess) {
-    return null;
-  }
 
   if (isError) {
     return (

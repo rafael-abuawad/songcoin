@@ -4,4 +4,3 @@ plugins:
   - name: vyper
   - name: base
   - name: optimism
-  - name: etherscan
