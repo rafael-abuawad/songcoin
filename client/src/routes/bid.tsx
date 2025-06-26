@@ -1,16 +1,36 @@
 import { BiddingForm } from "@/components/bidding-form";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useState } from "react";
 
 export const Route = createFileRoute("/bid")({
   component: Bid,
 });
 
 function Bid() {
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+
+  const handleBidSuccess = () => {
+    setShowSuccessAlert(true);
+  };
+
   return (
     <div className="container mx-auto max-w-xl px-4 py-6">
-      <BiddingForm />
+      <BiddingForm onBidSuccess={handleBidSuccess} />
+
+      {showSuccessAlert && (
+        <Alert className="mt-4 border-green-200 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Bid Successful!</AlertTitle>
+          <AlertDescription className="text-green-700">
+            Your bid has been placed successfully. You are now the highest
+            bidder!
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex flex-col justify-center items-center text-sm">
         <Link to="/">
           <Button variant="link">

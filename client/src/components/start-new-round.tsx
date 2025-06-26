@@ -1,4 +1,4 @@
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, useClient, useWriteContract } from "wagmi";
 import { Button } from "./ui/button";
 import { auctionAbi } from "@/lib/abi";
 import { auctionAddress } from "@/lib/constants";
@@ -6,32 +6,38 @@ import { Alert, AlertTitle, AlertDescription } from "./ui/alert";
 import { AlertCircleIcon, Check, Loader2 } from "lucide-react";
 import { useModal } from "connectkit";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useContext, useEffect } from "react";
+import { CurrentRoundContext } from "@/context/current-round.context";
+import { waitForTransactionReceipt } from "viem/actions";
 
 export default function StartNewRound() {
+  const client = useClient();
   const { writeContractAsync, isError, isPending, isSuccess, error } =
     useWriteContract();
   const { isConnected } = useAccount();
   const { setOpen } = useModal();
+  const { refetch } = useContext(CurrentRoundContext);
 
   const handleStartNewRound = async () => {
-    if (!isConnected) {
+    if (!isConnected || !client) {
       setOpen(true);
       return;
     }
 
-    toast.promise(
-      writeContractAsync({
+    try {
+      toast.loading("Starting new round...");
+      const tx = await writeContractAsync({
         address: auctionAddress,
         abi: auctionAbi,
         functionName: "end_round_and_start_new_round",
-      }),
-      {
-        loading: "Starting new round...",
-        success: "New round started",
-        error: "Unable to start new round.",
-      },
-    );
+      });
+      await waitForTransactionReceipt(client, { hash: tx, confirmations: 2 });
+      await refetch();
+      toast.dismiss();
+      toast.success("New round started!");
+    } catch (error) {
+      toast.error("Unable to start new round.");
+    }
   };
 
   useEffect(() => {

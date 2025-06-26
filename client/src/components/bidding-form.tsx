@@ -31,6 +31,10 @@ interface FormContext {
   highestBid: bigint;
 }
 
+interface BiddingFormProps {
+  onBidSuccess?: () => void;
+}
+
 const formSchema = z.object({
   songName: z
     .string()
@@ -68,7 +72,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function BiddingForm() {
+export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
   const { isConnected, address } = useAccount();
   const { data } = useBalance({
     address: address ?? ("" as Address),
@@ -131,6 +135,12 @@ export function BiddingForm() {
   const refetchForm = () => {
     refetchHighestBid();
     refetchAllowance();
+    form.reset();
+  };
+
+  const handleBidSuccess = () => {
+    refetchForm();
+    onBidSuccess?.();
   };
 
   const bidAmount = form.watch("bidAmount") || "0";
@@ -289,21 +299,6 @@ export function BiddingForm() {
             )}
           />
 
-          <ul>
-            <li>
-              <span>Balance: {formatEther(balance ?? 0n)} SONGCOIN</span>
-            </li>
-            <li>
-              <span>Allowance: {formatEther(allowance ?? 0n)} SONGCOIN</span>
-            </li>
-            <li>
-              <span>Highest Bid: {formatEther(highestBid ?? 0n)} SONGCOIN</span>
-            </li>
-            <li>
-              <span>Min Bid: {minBidAmount.toFixed(3)} SONGCOIN</span>
-            </li>
-          </ul>
-
           {balance >= minBidAmount ? (
             <div className="flex flex-col justify-center min-h-10">
               {!allowance || allowance < bidAmountParsed || allowance === 0n ? (
@@ -336,7 +331,7 @@ export function BiddingForm() {
                       iframe_hash: hashMessage(form.watch("songUrl")),
                       iframe_url: validateSpotifyEmbed(form.watch("songUrl")),
                     }}
-                    onSuccess={refetchForm}
+                    onSuccess={handleBidSuccess}
                   />
                   <span className="text-xs text-muted-foreground">
                     Ready to place your bid!
