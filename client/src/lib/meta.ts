@@ -1,3 +1,5 @@
+const BASE_URL = import.meta.env.VITE_BASE_URL || "https://songcoin.fun";
+
 /**
  * Utility functions for managing Open Graph meta tags and SEO
  */
@@ -32,8 +34,8 @@ export const DEFAULT_META: MetaConfig = {
     "Songcoin is a decentralized auction platform where you can bid to feature your Spotify content. Win auctions to showcase your music for 24 hours.",
   keywords:
     "songcoin, music, auction, spotify, web3, blockchain, decentralized, bidding",
-  image: "https://songcoin.fun/songcoin.png",
-  url: "https://songcoin.fun",
+  image: `${BASE_URL}/songcoin.png`,
+  url: BASE_URL,
   type: "website",
   author: "Songcoin Team",
 };

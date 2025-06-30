@@ -18,7 +18,7 @@ export const Route = createRootRoute({
 function Root() {
   return (
     <>
-     <HeadContent />
+      <HeadContent />
       <ThemeProvider>
         <SidebarProvider defaultOpen={false}>
           <Web3Provider>
