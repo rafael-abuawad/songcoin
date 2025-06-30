@@ -9,8 +9,9 @@ import { toast } from "sonner";
 import { useContext, useEffect } from "react";
 import { CurrentRoundContext } from "@/context/current-round.context";
 import { waitForTransactionReceipt } from "viem/actions";
+import { cn } from "@/lib/utils";
 
-export default function StartNewRound() {
+export default function StartNewRound({ className }: { className?: string }) {
   const client = useClient();
   const { writeContractAsync, isError, isPending, isSuccess, error } =
     useWriteContract();
@@ -36,6 +37,7 @@ export default function StartNewRound() {
       toast.dismiss();
       toast.success("New round started!");
     } catch (error) {
+      console.error(error);
       toast.error("Unable to start new round.");
     }
   };
@@ -47,11 +49,13 @@ export default function StartNewRound() {
 
     if (isError) {
       toast(() => (
-        <Alert variant="destructive">
-          <AlertCircleIcon />
-          <AlertTitle>Unable to start new round.</AlertTitle>
-          <AlertDescription>
-            <p>{error?.message}</p>
+        <Alert variant="destructive" className="bg-red-600/10 border-none">
+          <AlertCircleIcon className="stroke-red-600" />
+          <AlertTitle className="text-red-600">
+            Unable to start new round.
+          </AlertTitle>
+          <AlertDescription className="text-red-600">
+            <p className="truncate">{error?.message}</p>
           </AlertDescription>
         </Alert>
       ));
@@ -60,10 +64,11 @@ export default function StartNewRound() {
 
   return (
     <Button
-      variant={isError ? "destructive" : "secondary"}
+      variant={isError ? "destructive" : "default"}
       size="sm"
       disabled={isPending || isSuccess || isError}
       onClick={handleStartNewRound}
+      className={cn(className, "cursor-pointer hover:animate-pulse")}
     >
       {isPending && (
         <>
@@ -81,10 +86,6 @@ export default function StartNewRound() {
 
       {!isPending && !isSuccess && !isError && (
         <>
-          <div className="relative">
-            <span className="absolute inline-flex top-1 h-3 w-3 animate-ping rounded-full bg-primary opacity-75" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
-          </div>
           <span>Start New Round</span>
         </>
       )}

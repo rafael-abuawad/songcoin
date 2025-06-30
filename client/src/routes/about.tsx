@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { InfoIcon } from "lucide-react";
+import { createHeadConfig, ROUTE_META } from "@/lib/meta";
 
 export const Route = createFileRoute("/about")({
   component: About,
+  head: () => createHeadConfig(ROUTE_META.about),
 });
 
 function About() {

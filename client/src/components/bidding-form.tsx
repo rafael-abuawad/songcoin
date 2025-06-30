@@ -132,14 +132,18 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
     form.setValue("bidAmount", value);
   };
 
-  const refetchForm = () => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    form.handleSubmit(() => null)(e);
+  };
+
+  const refetchData = () => {
     refetchHighestBid();
     refetchAllowance();
-    form.reset();
   };
 
   const handleBidSuccess = () => {
-    refetchForm();
+    refetchData();
     onBidSuccess?.();
   };
 
@@ -174,7 +178,7 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
       </div>
 
       <Form {...form}>
-        <form className="space-y-4" onSubmit={form.handleSubmit(() => null)}>
+        <form className="space-y-4" onSubmit={handleSubmit}>
           {/* Song Name */}
           <FormField
             control={form.control}
@@ -306,7 +310,7 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
                   <ApproveButton
                     className="mt-2 w-full cursor-pointer"
                     bidAmount={bidAmountParsed}
-                    onSuccess={refetchForm}
+                    onSuccess={refetchData}
                     disabled={bidAmount === "0"}
                   />
                   {bidAmount === "0" ? (

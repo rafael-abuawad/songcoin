@@ -8,9 +8,11 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/sonner";
 import { CurrentRoundProvider } from "@/context/current-round.context";
+import { createHeadConfig } from "@/lib/meta";
 
 export const Route = createRootRoute({
   component: Root,
+  head: () => createHeadConfig(),
 });
 
 function Root() {

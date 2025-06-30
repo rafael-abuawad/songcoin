@@ -2,9 +2,11 @@ import { CurrentSong } from "@/components/current-song";
 import { createFileRoute } from "@tanstack/react-router";
 import { LatestBids } from "@/components/latests-bids";
 import { CurrentBid } from "@/components/current-bid";
+import { createHeadConfig, ROUTE_META } from "@/lib/meta";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => createHeadConfig(ROUTE_META.home),
 });
 
 function Index() {

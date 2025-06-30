@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useState } from "react";
+import { createHeadConfig, ROUTE_META } from "@/lib/meta";
 
 export const Route = createFileRoute("/bid")({
   component: Bid,
+  head: () => createHeadConfig(ROUTE_META.bid),
 });
 
 function Bid() {
@@ -21,10 +23,10 @@ function Bid() {
       <BiddingForm onBidSuccess={handleBidSuccess} />
 
       {showSuccessAlert && (
-        <Alert className="mt-4 border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Bid Successful!</AlertTitle>
-          <AlertDescription className="text-green-700">
+        <Alert className="mt-4 bg-green-600/10 border-none">
+          <CheckCircle className="h-4 w-4 stroke-green-600" />
+          <AlertTitle className="text-green-600">Bid Successful!</AlertTitle>
+          <AlertDescription className="text-green-600">
             Your bid has been placed successfully. You are now the highest
             bidder!
           </AlertDescription>
