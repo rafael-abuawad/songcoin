@@ -1,6 +1,6 @@
 import { Web3Provider } from "@/components/web3-provider";
 import { ThemeProvider } from "@/components/theme-provider";
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -18,6 +18,7 @@ export const Route = createRootRoute({
 function Root() {
   return (
     <>
+     <HeadContent />
       <ThemeProvider>
         <SidebarProvider defaultOpen={false}>
           <Web3Provider>
