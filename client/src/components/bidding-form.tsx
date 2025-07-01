@@ -3,8 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { DiscIcon, Music, Wallet } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle, DiscIcon, Wallet } from "lucide-react";
 import { useAccount, useBalance, useReadContract } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { auctionAddress, songcoinAddress } from "@/lib/constants";
@@ -26,13 +25,14 @@ import {
 import { auctionAbi } from "@/lib/abi";
 import { ApproveButton } from "./approve-button";
 import { BidButton } from "./bid-button";
+import { useContext, useState } from "react";
+import { CurrentRoundContext } from "@/context/current-round.context";
+import { Countdown } from "./countdown";
+import { EmbededDialog } from "./embeded-dialog";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 interface FormContext {
   highestBid: bigint;
-}
-
-interface BiddingFormProps {
-  onBidSuccess?: () => void;
 }
 
 const formSchema = z.object({
@@ -72,8 +72,10 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
+export function BiddingForm() {
+  const { currentRound, isLoading, isError } = useContext(CurrentRoundContext);
   const { isConnected, address } = useAccount();
+  const [bidSuccess, setBidSuccess] = useState(false);
   const { data } = useBalance({
     address: address ?? ("" as Address),
     token: songcoinAddress,
@@ -144,7 +146,7 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
 
   const handleBidSuccess = () => {
     refetchData();
-    onBidSuccess?.();
+    setBidSuccess(true);
   };
 
   const bidAmount = form.watch("bidAmount") || "0";
@@ -166,7 +168,7 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
   }
 
   return (
-    <div className="p-3 bg-card rounded-lg border">
+    <>
       <div className="pb-2">
         <h3 className="text-lg font-semibold">Place Your Bid</h3>
         <p className="text-sm text-muted-foreground">
@@ -175,6 +177,19 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
             {formatEther(highestBid ?? 0n)} SONGCOIN
           </span>
         </p>
+      </div>
+
+      {/* Countdown Timer */}
+      <div>
+        {isLoading ? (
+          <div className="animate-pulse h-32 bg-muted rounded-xl" />
+        ) : isError || !currentRound ? (
+          <div className="text-destructive text-center py-8 rounded-xl border bg-destructive/10">
+            Unable to load auction info.
+          </div>
+        ) : (
+          <Countdown endTime={Number(currentRound.end_time)} />
+        )}
       </div>
 
       <Form {...form}>
@@ -217,39 +232,18 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
             )}
           />
 
-          {/* Song Embed Spotify Code */}
+          {/* Song Embed Spotify Code - Responsive Dialog/Drawer */}
           <FormField
             control={form.control}
             name="songUrl"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Song Embed Spotify Code</FormLabel>
-                <div className="rounded-md border bg-secondary/10">
-                  <div className="mb-2 flex items-center gap-2 p-3">
-                    <Music className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Paste iframe HTML code below
-                    </span>
-                  </div>
-                  <FormControl>
-                    <Textarea
-                      placeholder="<iframe src='https://open.spotify.com/embed/track/...' ...></iframe>"
-                      className="min-h-[100px] border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                      {...field}
-                    />
-                  </FormControl>
-                </div>
-                <p className="text-xs text-muted-foreground underline">
-                  <a
-                    href="https://developer.spotify.com/documentation/embeds/tutorials/creating-an-embed"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    We currently only support Spotify embeds. You can get the
-                    embed code by right clicking on the Spotify player and
-                    selecting "Embed track".
-                  </a>
-                </p>
+                <EmbededDialog
+                  value={field.value}
+                  onChange={field.onChange}
+                  FormMessage={<FormMessage />}
+                />
                 <FormMessage />
               </FormItem>
             )}
@@ -277,24 +271,33 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
                     />
                   </FormControl>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
                   <p className="text-xs text-muted-foreground">
                     Your Balance:{" "}
                     <span
                       className="underline hover:text-primary cursor-pointer"
                       onClick={handleBalanceClick}
                     >
-                      {formatEther(balance ?? 0n)} SONGCOIN
+                      {Intl.NumberFormat(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }).format(Number(formatEther(balance ?? 0n)))}
                     </span>
                   </p>
-                  <span className="text-xs text-muted-foreground">|</span>
+                  <span className="hidden md:block text-xs text-muted-foreground">
+                    |
+                  </span>
                   <p className="text-xs text-muted-foreground">
                     Min:{" "}
                     <span
                       className="underline hover:text-primary cursor-pointer"
                       onClick={handleMinClick}
                     >
-                      {minBidAmount.toFixed(3)} SONGCOIN
+                      {Intl.NumberFormat(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }).format(minBidAmount)}{" "}
+                      SONGCOIN
                     </span>
                   </p>
                 </div>
@@ -302,6 +305,19 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
               </FormItem>
             )}
           />
+
+          {bidSuccess && (
+            <Alert className="mt-4 bg-green-600/10 border-none">
+              <CheckCircle className="h-4 w-4 stroke-green-600" />
+              <AlertTitle className="text-green-600">
+                Bid Successful!
+              </AlertTitle>
+              <AlertDescription className="text-green-600">
+                Your bid has been placed successfully. You are now the highest
+                bidder!
+              </AlertDescription>
+            </Alert>
+          )}
 
           {balance >= minBidAmount ? (
             <div className="flex flex-col justify-center min-h-10">
@@ -361,6 +377,6 @@ export function BiddingForm({ onBidSuccess }: BiddingFormProps) {
           )}
         </form>
       </Form>
-    </div>
+    </>
   );
 }

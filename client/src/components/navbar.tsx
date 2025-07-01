@@ -20,7 +20,7 @@ export function Navbar() {
       </div>
 
       <div className="flex gap-2 items-center justify-center">
-        <div>
+        <div className="hidden md:block">
           <ConnectKitButton.Custom>
             {({ show, truncatedAddress, isConnected }) => {
               if (isConnected) {
