@@ -44,6 +44,7 @@ export function EmbededDialog({
         target: { value: text },
       } as React.ChangeEvent<HTMLTextAreaElement>);
     } catch (e) {
+      console.error(e);
       toast.error("Could not paste from clipboard");
     }
   };
