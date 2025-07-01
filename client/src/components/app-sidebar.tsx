@@ -28,6 +28,9 @@ export function AppSidebar() {
               <Link to="/">Home</Link>
             </Button>
             <Button variant="ghost" className="w-full">
+              <Link to="/bid">Bid</Link>
+            </Button>
+            <Button variant="ghost" className="w-full">
               <a href="https://docs.songcoin.xyz" target="_blank">
                 Buy
               </a>
