@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ClipboardIcon, CheckIcon } from "lucide-react";
+import { ClipboardIcon, CircleCheck } from "lucide-react";
 
 interface EmbededDialogProps {
   value: string;
@@ -34,9 +34,14 @@ export function EmbededDialog({
   FormMessage,
 }: EmbededDialogProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [added, setAdded] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  // Handler for pasting from clipboard
+  const handleAddEmbed = () => {
+    setDialogOpen(false);
+    setAdded(true);
+  };
+
   const handlePasteFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
@@ -56,9 +61,10 @@ export function EmbededDialog({
           <Button
             type="button"
             variant="outline"
-            className="w-full justify-start px-2.5"
+            className="w-full justify-between px-2.5 font-normal"
           >
             Enter Spotify Embed Code
+            {added && <CircleCheck className="h-4 w-4" strokeWidth={2} />}
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
@@ -82,9 +88,9 @@ export function EmbededDialog({
                 type="button"
                 variant="default"
                 className="flex-grow"
-                onClick={() => setDialogOpen(false)}
+                onClick={handleAddEmbed}
               >
-                <span>Add embeded code</span>
+                Add embeded code
               </Button>
               <Button
                 type="button"
@@ -109,9 +115,10 @@ export function EmbededDialog({
         <Button
           type="button"
           variant="outline"
-          className="w-full justify-start px-2.5"
+          className="w-full justify-between px-2.5 font-normal"
         >
           Enter Spotify Embed Code
+          {added && <CircleCheck className="h-4 w-4" strokeWidth={2} />}
         </Button>
       </DrawerTrigger>
       <DrawerContent>
@@ -130,6 +137,17 @@ export function EmbededDialog({
             onChange={onChange}
           />
           <div className="flex flex-row gap-2 justify-end mt-2">
+            <DrawerClose asChild>
+              <Button
+                type="button"
+                variant="default"
+                aria-label="OK"
+                className="flex-grow"
+                onClick={handleAddEmbed}
+              >
+                Add embeded code
+              </Button>
+            </DrawerClose>
             <Button
               type="button"
               size="icon"
@@ -139,16 +157,6 @@ export function EmbededDialog({
             >
               <ClipboardIcon className="h-5 w-5" />
             </Button>
-            <DrawerClose asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="default"
-                aria-label="OK"
-              >
-                <CheckIcon className="h-5 w-5" />
-              </Button>
-            </DrawerClose>
           </div>
         </div>
         {FormMessage}

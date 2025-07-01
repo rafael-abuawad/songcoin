@@ -271,7 +271,7 @@ export function BiddingForm() {
                     />
                   </FormControl>
                 </div>
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-1 md:gap-2">
                   <p className="text-xs text-muted-foreground">
                     Your Balance:{" "}
                     <span
