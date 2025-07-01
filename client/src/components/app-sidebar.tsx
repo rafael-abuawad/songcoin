@@ -5,13 +5,24 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ConnectKitButton } from "connectkit";
 import { Sparkles } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 export function AppSidebar() {
+  const { openMobile, toggleSidebar } = useSidebar();
+  const pathname = useLocation({ select: (location) => location.pathname });
+
+  useEffect(() => {
+    if (openMobile) {
+      toggleSidebar();
+    }
+  }, [pathname]);
+
   return (
     <Sidebar>
       <SidebarHeader>
