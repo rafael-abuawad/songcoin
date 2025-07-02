@@ -505,3 +505,203 @@ def test_end_round_and_start_new_round(
 
     # Check round ID
     assert auction.get_current_round_id() == round_id + 1
+
+
+def test_is_there_a_last_winning_round(
+    chain, auction, mock_erc20, deployer, bidder1, song
+):
+    # Should be False before any round is completed
+    assert not auction.is_there_a_last_winning_round()
+    # Mint and approve
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    auction.bid(100, song, sender=bidder1)
+
+    # Fast-forward to end of round
+    chain.pending_timestamp += auction.get_round_duration()
+    chain.mine()
+
+    auction.end_round_and_start_new_round(sender=deployer)
+    # Should be True after a round is completed
+    assert auction.is_there_a_last_winning_round()
+
+
+def test_get_current_round_highest_bid(
+    auction, mock_erc20, deployer, bidder1, bidder2, song
+):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+    auction.bid(100, song, sender=bidder1)
+    assert auction.get_current_round_highest_bid() == 100
+    auction.bid(200, song, sender=bidder2)
+    assert auction.get_current_round_highest_bid() == 200
+
+
+def test_get_round_highest_bidder_and_bid(
+    auction, mock_erc20, deployer, bidder1, bidder2, song
+):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.mint(bidder2, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    mock_erc20.approve(auction.address, 1000, sender=bidder2)
+    round_id = auction.get_current_round_id()
+    auction.bid(100, song, sender=bidder1)
+    auction.bid(200, song, sender=bidder2)
+    assert auction.get_round_highest_bidder(round_id) == bidder2.address
+    assert auction.get_round_highest_bid(round_id) == 200
+
+
+def test_get_round_start_and_end_time(
+    chain, auction, mock_erc20, deployer, bidder1, song
+):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    round_id = auction.get_current_round_id()
+    start_time = auction.get_round_start_time(round_id)
+    end_time = auction.get_round_end_time(round_id)
+    assert end_time > start_time
+    auction.bid(100, song, sender=bidder1)
+
+    # Fast-forward to end of round
+    chain.pending_timestamp += auction.get_round_duration()
+    chain.mine()
+
+    auction.end_round_and_start_new_round(sender=deployer)
+    new_round_id = auction.get_current_round_id()
+    new_start = auction.get_round_start_time(new_round_id)
+    new_end = auction.get_round_end_time(new_round_id)
+    assert new_end > new_start
+    assert new_start > end_time
+
+
+def test_get_round_song(auction, mock_erc20, deployer, bidder1, song):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    round_id = auction.get_current_round_id()
+    auction.bid(123, song, sender=bidder1)
+
+    round_song = auction.get_round_song(round_id)
+    assert round_song.title == song["title"]
+    assert round_song.artist == song["artist"]
+    assert round_song.iframe_url == song["iframe_url"]
+    assert bytes(round_song.iframe_hash) == bytes(HexBytes(song["iframe_hash"]))
+
+
+def test_cannot_bid_after_round_is_over(
+    chain, auction, mock_erc20, deployer, bidder1, song
+):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    auction.bid(100, song, sender=bidder1)
+
+    # Fast-forward to end of round
+    chain.pending_timestamp += auction.get_round_duration()
+    chain.mine()
+    with ape.reverts("auction: round is over"):
+        auction.bid(200, song, sender=bidder1)
+
+
+def test_cannot_end_round_twice(chain, auction, mock_erc20, deployer, bidder1, song):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    auction.bid(100, song, sender=bidder1)
+
+    # Fast-forward to end of round
+    chain.pending_timestamp += auction.get_round_duration()
+    chain.mine()
+    auction.end_round_and_start_new_round(sender=deployer)
+
+    # Try to end again without bidding in new round
+    with ape.reverts("auction: round has not ended"):
+        auction.end_round_and_start_new_round(sender=deployer)
+
+
+def test_cannot_start_new_round_before_ending(
+    chain, auction, mock_erc20, deployer, bidder1, song
+):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    auction.bid(100, song, sender=bidder1)
+
+    # Try to start new round before time has passed
+    with ape.reverts("auction: round has not ended"):
+        auction.end_round_and_start_new_round(sender=deployer)
+
+
+def test_get_latests_bidded_songs_empty_on_new_round(
+    chain, auction, mock_erc20, deployer, bidder1, song
+):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    auction.bid(100, song, sender=bidder1)
+
+    # Fast-forward to end of round
+    chain.pending_timestamp += auction.get_round_duration()
+    chain.mine()
+    auction.end_round_and_start_new_round(sender=deployer)
+
+    new_round_id = auction.get_current_round_id()
+    latests = auction.get_latests_bidded_songs(new_round_id)
+    for s in latests:
+        assert s.title == ""
+        assert s.artist == ""
+        assert s.iframe_url == ""
+        assert bytes(s.iframe_hash) == bytes(HexBytes("0x" + "0" * 64))
+
+
+def test_songbid_event_multiple_rounds(
+    chain, auction, mock_erc20, deployer, bidder1, song, song2
+):
+    mock_erc20.mint(bidder1, 200_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 2000, sender=bidder1)
+
+    # Round 1
+    tx1 = auction.bid(100, song, sender=bidder1)
+    event1 = tx1.events[-1]
+    assert event1.round_id == auction.get_current_round_id()
+    assert event1.song[0] == song["title"]
+
+    # Fast-forward to end of round
+    chain.pending_timestamp += auction.get_round_duration()
+    chain.mine()
+    auction.end_round_and_start_new_round(sender=deployer)
+
+    # Round 2
+    tx2 = auction.bid(200, song2, sender=bidder1)
+    event2 = tx2.events[-1]
+    assert event2.round_id == auction.get_current_round_id()
+    assert event2.song[0] == song2["title"]
+
+
+def test_no_refund_on_first_bid(auction, mock_erc20, deployer, bidder1, song):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+
+    # First bid should not revert and should not attempt refund
+    balance_before = mock_erc20.balanceOf(bidder1)
+    auction.bid(100, song, sender=bidder1)
+    balance_after = mock_erc20.balanceOf(bidder1)
+    assert balance_before - balance_after == 100
+
+
+def test_latests_bidded_songs_rollover(auction, mock_erc20, deployer, bidder1, song):
+    mock_erc20.mint(bidder1, 100_0000, sender=deployer)
+    mock_erc20.approve(auction.address, 1000, sender=bidder1)
+    round_id = auction.get_current_round_id()
+
+    # Make 4 bids with different songs
+    for i in range(4):
+        s = song.copy()
+        s["title"] = f"Song {i}"
+        s["artist"] = f"Artist {i}"
+        s["iframe_url"] = f"https://open.spotify.com/embed/track/{i}"
+        auction.bid(100 + i, s, sender=bidder1)
+    latests = auction.get_latests_bidded_songs(round_id)
+
+    # Only last 3 should be present, in order 1,2,3
+    for idx, i in enumerate([1, 2, 3]):
+        assert latests[idx].title == f"Song {i}"
+        assert latests[idx].artist == f"Artist {i}"
+        assert latests[idx].iframe_url == f"https://open.spotify.com/embed/track/{i}"
