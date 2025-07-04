@@ -10,7 +10,7 @@ def deploy_songcoin(deployer):
 
 
 def main():
-    deployer = accounts.load("brave")
-    songcoin = "0x3690a3Dd53f77D4F343ac8D263c5b2039c5234F8"
-    duration = 60 * 15
-    project.auction.deploy(songcoin, duration, sender=deployer)
+    deployer = accounts.load("songcoin")
+    songcoin = "0x5dfcf3458cc506be8d9d939d1fe1ddc0a54300a3"
+    duration = 60 * 60 * 24  # 24 hours
+    project.auction.deploy(songcoin, duration, sender=deployer, publish=True)

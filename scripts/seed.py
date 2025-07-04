@@ -3,7 +3,7 @@ from eth_pydantic_types import HexBytes
 
 
 AUCTION_ADDRESS = "0x0d0902dc4970556e2BE2C97f507DFD14B15F51c0"
-SONGCOIN_ADDRESS = "0x3690a3Dd53f77D4F343ac8D263c5b2039c5234F8"
+SONGCOIN_ADDRESS = "0x5dfcf3458cc506be8d9d939d1fe1ddc0a54300a3"
 TEST_WALLETS = []
 
 
@@ -13,7 +13,7 @@ def main():
     auction = project.auction.at(AUCTION_ADDRESS)
 
     # Get the deployer account
-    deployer = accounts.load("brave")
+    deployer = accounts.load("songcoin")
     deployer.set_autosign(True)
 
     # Mint test wallets
