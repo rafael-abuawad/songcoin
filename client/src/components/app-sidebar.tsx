@@ -42,7 +42,7 @@ export function AppSidebar() {
               <Link to="/bid">Bid</Link>
             </Button>
             <Button variant="ghost" className="w-full">
-              <a href="https://docs.songcoin.xyz" target="_blank">
+              <a href="https://flaunch.gg/base/coin/0x5dfcf3458cc506be8d9d939d1fe1ddc0a54300a3" target="_blank">
                 Buy
               </a>
             </Button>
