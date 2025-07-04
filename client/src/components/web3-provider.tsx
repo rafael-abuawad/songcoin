@@ -6,10 +6,7 @@ import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 const config = createConfig(
   getDefaultConfig({
     chains: [base],
-    transports: {
-      [base.id]: http(import.meta.env.VITE_BASE_RPC_URL),
-    },
-
+    
     // Required API Keys
     walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "",
 
