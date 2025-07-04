@@ -1,7 +1,8 @@
 # pragma version ~=0.4.1
-# @author @rabuawad_ (https://x.com/rabuawad_)
 """
 @title Auction with Rounds
+@custom:contract-name auction
+@author Rafael Abuawad (https://x.com/rabuawad_)
 @license MIT
 @notice This contract implements an auction system for songs with multiple rounds.
         Each round has a duration of 24 hours and allows users to bid on songs using SongCoin tokens.

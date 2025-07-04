@@ -1,13 +1,13 @@
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { optimism } from "wagmi/chains";
+import { base } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 
 const config = createConfig(
   getDefaultConfig({
-    chains: [optimism],
+    chains: [base],
     transports: {
-      [optimism.id]: http(import.meta.env.VITE_OPTIMISM_RPC_URL),
+      [base.id]: http(import.meta.env.VITE_BASE_RPC_URL),
     },
 
     // Required API Keys

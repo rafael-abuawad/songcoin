@@ -234,4 +234,4 @@ If you have any questions or need help, please open an issue on GitHub or reach 
 
 ---
 
-Built with ❤️ by the SongCoin team
+Built with ❤️ by the [Rafael Abuawad](https://github.com/rafael-abuawad)
