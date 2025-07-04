@@ -1,6 +1,10 @@
-# SongCoin 🎵
+# Songcoin 🎵
+![image](https://github.com/user-attachments/assets/a3baf088-ea58-4ae1-8f59-96ff52704868)
+<center><a href="https://songcoin.fun/" target="_blank">songcoin.fun</a></center>
 
 A decentralized auction platform for songs built with Vyper smart contracts and a modern frontend.
+
+
 
 ## 🚀 Features
 
